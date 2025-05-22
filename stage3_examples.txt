@@ -1,0 +1,7 @@
+"hello" + " " + "world"
+"foo" + "bar" == "foobar"
+"10 corgis" != "10" + "corgis"
+5 + " apples"
+"The answer is " + 42
+true + " or " + false
+"Test string with\nnew line and\ttab"
