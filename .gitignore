@@ -1,31 +1,71 @@
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
-env/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 
-# Virtual Environment
+# C extensions
+*.so
+
+# Virtual environment folders
+env/
 venv/
 ENV/
+VENV/
+.venv/
+.python_env/
 
-# IDE specific files
-.idea/
+# VS Code settings
 .vscode/
+
+# PyCharm settings
+.idea/
+
+# Mac OS metadata files
+.DS_Store
+
+# Windows thumbnail cache
+Thumbs.db
+
+# Python egg files
+*.egg
+*.egg-info/
+dist/
+build/
+
+var/
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+
+# Temporary files
+*.tmp
 *.swp
+*.bak
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Output files/logs
+*.log
+
+# Personal files and secret tokens (do not store credentials in repo)
+*.env
+*.secret
+
+# Example source files folder (optional, remove if you want to include)
+examples/
+
+# Ignore zip archives of submissions
+*.zip
