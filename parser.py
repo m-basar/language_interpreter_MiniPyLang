@@ -1,38 +1,39 @@
 """
-parser.py - Enhanced recursive descent parser with Boolean support
+parser.py - Enhanced parser with string literal support
 
-We're extending our grammar to handle Boolean expressions and comparisons.
-The key challenge is establishing proper operator precedence.
-
-Enhanced Grammar:
-logical_or    : logical_and (OR logical_and)*
-logical_and   : equality (AND equality)*
-equality      : comparison ((EQUAL | NOT_EQUAL) comparison)*
-comparison    : expression ((LESS_THAN | GREATER_THAN | LESS_EQUAL | GREATER_EQUAL) expression)*
-expression    : term ((PLUS | MINUS) term)*
-term          : factor ((MULTIPLY | DIVIDE) factor)*
-factor        : NUMBER | BOOLEAN | LPAREN logical_or RPAREN | (PLUS | MINUS | NOT) factor
+Adding string support to the parser demonstrates how new data types
+can be integrated into existing grammatical structures without
+disrupting the overall parsing strategy.
 """
 
 from tokens import Token
-from ast_nodes import NumberNode, BooleanNode, BinaryOperationNode, UnaryOperationNode
+from ast_nodes import NumberNode, BooleanNode, StringNode, BinaryOperationNode, UnaryOperationNode
 
 class ParseError(Exception):
-    """Custom exception for parsing errors"""
-    pass
+    """Enhanced parse error with better context information"""
+    def __init__(self, message, token=None):
+        self.message = message
+        self.token = token
+        error_msg = message
+        if token:
+            error_msg += f" (found {token})"
+        super().__init__(error_msg)
 
 class Parser:
     """
-    Enhanced parser that handles both arithmetic and Boolean expressions.
+    Enhanced parser supporting arithmetic, Boolean, and string expressions.
     
-    The grammar is structured to ensure proper operator precedence:
-    1. Logical OR (lowest precedence)
-    2. Logical AND
-    3. Equality/Inequality (==, !=)
-    4. Comparison (<, >, <=, >=)
-    5. Addition/Subtraction
-    6. Multiplication/Division
-    7. Unary operators (-, +, !) (highest precedence)
+    The grammar remains largely unchanged, demonstrating how well-designed
+    language grammars can accommodate new features gracefully.
+    
+    Grammar (unchanged structure, expanded terminals):
+    logical_or    : logical_and (OR logical_and)*
+    logical_and   : equality (AND equality)*
+    equality      : comparison ((EQUAL | NOT_EQUAL) comparison)*
+    comparison    : expression ((LESS_THAN | GREATER_THAN | LESS_EQUAL | GREATER_EQUAL) expression)*
+    expression    : term ((PLUS | MINUS) term)*
+    term          : factor ((MULTIPLY | DIVIDE) factor)*
+    factor        : NUMBER | BOOLEAN | STRING | LPAREN logical_or RPAREN | (PLUS | MINUS | NOT) factor
     """
     
     def __init__(self, lexer):
@@ -40,10 +41,16 @@ class Parser:
         self.current_token = self.lexer.get_next_token()
     
     def error(self, message="Invalid syntax"):
-        raise ParseError(f"{message}. Current token: {self.current_token}")
+        """Raise a parsing error with context information"""
+        raise ParseError(message, self.current_token)
     
     def eat(self, token_type):
-        """Consume a token of the expected type"""
+        """
+        Consume a token of the expected type.
+        
+        This method provides clear error messages when the parser
+        encounters unexpected tokens, which helps with debugging.
+        """
         if self.current_token.type == token_type:
             self.current_token = self.lexer.get_next_token()
         else:
@@ -51,16 +58,19 @@ class Parser:
     
     def factor(self):
         """
-        Parse factors: NUMBER | BOOLEAN | LPAREN logical_or RPAREN | (PLUS | MINUS | NOT) factor
+        Parse factors: NUMBER | BOOLEAN | STRING | LPAREN logical_or RPAREN | (PLUS | MINUS | NOT) factor
         
-        Factors are the atomic elements of our expressions.
+        The addition of STRING to this rule demonstrates how new data types
+        integrate into existing grammatical structures.
         """
         token = self.current_token
         
+        # Numeric literals
         if token.type == Token.NUMBER:
             self.eat(Token.NUMBER)
             return NumberNode(token)
         
+        # Boolean literals
         elif token.type == Token.TRUE:
             self.eat(Token.TRUE)
             return BooleanNode(token)
@@ -69,22 +79,28 @@ class Parser:
             self.eat(Token.FALSE)
             return BooleanNode(token)
         
+        # String literals - new for Stage 3
+        elif token.type == Token.STRING:
+            self.eat(Token.STRING)
+            return StringNode(token)
+        
+        # Parenthesised expressions
         elif token.type == Token.LPAREN:
             self.eat(Token.LPAREN)
             node = self.logical_or()  # Parse the full expression inside parentheses
             self.eat(Token.RPAREN)
             return node
         
+        # Unary operators
         elif token.type in (Token.PLUS, Token.MINUS, Token.NOT):
-            # Handle unary operators
             self.eat(token.type)
             return UnaryOperationNode(token, self.factor())
         
         else:
-            self.error("Expected number, boolean, parentheses, or unary operator")
+            self.error("Expected number, boolean, string, parenthesis, or unary operator")
     
     def term(self):
-        """Parse terms: factor ((MULTIPLY | DIVIDE) factor)*"""
+        """Parse multiplication and division - unchanged from previous stages"""
         node = self.factor()
         
         while self.current_token.type in (Token.MULTIPLY, Token.DIVIDE):
@@ -100,7 +116,7 @@ class Parser:
         return node
     
     def expression(self):
-        """Parse expressions: term ((PLUS | MINUS) term)*"""
+        """Parse addition and subtraction - unchanged but now handles string concatenation"""
         node = self.term()
         
         while self.current_token.type in (Token.PLUS, Token.MINUS):
@@ -116,11 +132,7 @@ class Parser:
         return node
     
     def comparison(self):
-        """
-        Parse comparisons: expression ((LESS_THAN | GREATER_THAN | LESS_EQUAL | GREATER_EQUAL) expression)*
-        
-        Comparison operators have lower precedence than arithmetic operators.
-        """
+        """Parse comparison operations - unchanged from Stage 2"""
         node = self.expression()
         
         while self.current_token.type in (Token.LESS_THAN, Token.GREATER_THAN, 
@@ -141,11 +153,7 @@ class Parser:
         return node
     
     def equality(self):
-        """
-        Parse equality: comparison ((EQUAL | NOT_EQUAL) comparison)*
-        
-        Equality operators have lower precedence than comparison operators.
-        """
+        """Parse equality operations - unchanged from Stage 2"""
         node = self.comparison()
         
         while self.current_token.type in (Token.EQUAL, Token.NOT_EQUAL):
@@ -161,11 +169,7 @@ class Parser:
         return node
     
     def logical_and(self):
-        """
-        Parse logical AND: equality (AND equality)*
-        
-        Logical AND has lower precedence than equality operators.
-        """
+        """Parse logical AND operations - unchanged from Stage 2"""
         node = self.equality()
         
         while self.current_token.type == Token.AND:
@@ -176,11 +180,7 @@ class Parser:
         return node
     
     def logical_or(self):
-        """
-        Parse logical OR: logical_and (OR logical_and)*
-        
-        Logical OR has the lowest precedence of all operators.
-        """
+        """Parse logical OR operations - top level of expression grammar"""
         node = self.logical_and()
         
         while self.current_token.type == Token.OR:
@@ -191,8 +191,8 @@ class Parser:
         return node
     
     def parse(self):
-        """Parse the input and return the root of the AST"""
-        ast = self.logical_or()  # Start with the lowest precedence rule
+        """Parse the complete input and return the AST root"""
+        ast = self.logical_or()
         
         if self.current_token.type != Token.EOF:
             self.error("Unexpected token after expression")

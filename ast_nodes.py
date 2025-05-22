@@ -1,15 +1,17 @@
 """
-ast_nodes.py - AST nodes with Boolean support
+ast_nodes.py - Enhanced AST nodes with string literal support
 
-We're adding new node types to represent Boolean values and logical operations.
+String nodes introduce the concept of variable-length data in our AST.
+Unlike numbers and Booleans, strings can be arbitrarily long, which
+has implications for memory usage and processing time.
 """
 
 class ASTNode:
-    """Base class for all AST nodes."""
+    """Base class for all AST nodes – unchanged"""
     pass
 
 class NumberNode(ASTNode):
-    """Represents a numeric literal (unchanged from Stage 1)."""
+    """Numeric literal node – unchanged from previous stages"""
     
     def __init__(self, token):
         self.token = token
@@ -19,22 +21,42 @@ class NumberNode(ASTNode):
         return f'Number({self.value})'
 
 class BooleanNode(ASTNode):
-    """
-    Represents a Boolean literal (true or false).
-    This is similar to NumberNode but for Boolean values.
-    """
+    """Boolean literal node – unchanged from Stage 2"""
     
     def __init__(self, token):
         self.token = token
-        self.value = token.value  # This will be True or False
+        self.value = token.value
     
     def __str__(self):
         return f'Boolean({self.value})'
 
+class StringNode(ASTNode):
+    """
+    String literal node – new for Stage 3
+
+    String nodes represent textual literals in our language.
+    They are similar to number and Boolean nodes but represent
+    potentially large, variable-length data.
+    """
+    
+    def __init__(self, token):
+        self.token = token
+        self.value = token.value  # The actual string content
+    
+    def __str__(self):
+        # Truncate very long strings for readable debugging output
+        if len(self.value) > 20:
+            return f'String("{self.value[:17]}...")'
+        else:
+            return f'String("{self.value}")'
+
 class BinaryOperationNode(ASTNode):
     """
-    Represents any binary operation (arithmetic, comparison, or logical).
-    We're reusing this node type for all binary operations, which keeps our AST simple.
+    Binary operation node – enhanced to handle string operations
+
+    This node type now represents arithmetic, comparison, logical,
+    and string operations, demonstrating how AST nodes may be
+    reused across different language features.
     """
     
     def __init__(self, left, operator_token, right):
@@ -46,10 +68,7 @@ class BinaryOperationNode(ASTNode):
         return f'BinaryOp({self.operator.value})'
 
 class UnaryOperationNode(ASTNode):
-    """
-    Represents unary operations (-, +, or ! for Boolean negation).
-    We're extending this to handle logical NOT in addition to arithmetic negation.
-    """
+    """Unary operation node – unchanged from previous stages"""
     
     def __init__(self, operator_token, operand):
         self.token = self.operator = operator_token
