@@ -1,17 +1,20 @@
 """
-tokens.py – Token definitions for arithmetic and Boolean expressions
+tokens.py - Enhanced token definitions including string literals
 
-This module extends the token vocabulary to include Boolean concepts,
-enabling the language to process both arithmetic and Boolean expressions.
+We're adding support for string literals, which introduces new concepts
+about how tokens can be recognised and processed.
 """
 
 class Token:
     """
-    Token class with support for arithmetic and Boolean operations.
-    New categories of symbols are included for Boolean logic.
+    Enhanced token class that now supports string literals.
+    
+    String tokens are different from our previous tokens because they
+    can contain arbitrary content between delimiters (quote marks).
+    This introduces complexity in lexical analysis.
     """
-
-    # Arithmetic token types
+    
+    # Existing token types from Stages 1 and 2
     NUMBER = 'NUMBER'
     PLUS = 'PLUS'
     MINUS = 'MINUS'
@@ -20,34 +23,36 @@ class Token:
     LPAREN = 'LPAREN'
     RPAREN = 'RPAREN'
     EOF = 'EOF'
-
-    # Boolean literal tokens
-    TRUE = 'TRUE'                # The literal value true
-    FALSE = 'FALSE'              # The literal value false
-
-    # Comparison operator tokens
-    EQUAL = 'EQUAL'              # == (equality)
-    NOT_EQUAL = 'NOT_EQUAL'      # != (inequality)
-    LESS_THAN = 'LESS_THAN'      # <
-    GREATER_THAN = 'GREATER_THAN'  # >
-    LESS_EQUAL = 'LESS_EQUAL'    # <=
-    GREATER_EQUAL = 'GREATER_EQUAL'  # >=
-
-    # Logical operator tokens
-    AND = 'AND'                  # and (logical AND)
-    OR = 'OR'                    # or (logical OR)
-    NOT = 'NOT'                  # ! (logical negation)
-
+    
+    # Boolean token types
+    TRUE = 'TRUE'
+    FALSE = 'FALSE'
+    EQUAL = 'EQUAL'
+    NOT_EQUAL = 'NOT_EQUAL'
+    LESS_THAN = 'LESS_THAN'
+    GREATER_THAN = 'GREATER_THAN'
+    LESS_EQUAL = 'LESS_EQUAL'
+    GREATER_EQUAL = 'GREATER_EQUAL'
+    AND = 'AND'
+    OR = 'OR'
+    NOT = 'NOT'
+    
+    # New string token type
+    STRING = 'STRING'              # For string literals like "hello world"
+    
     def __init__(self, type, value):
         self.type = type
         self.value = value
-
+    
     def __str__(self):
+        # Special handling for string display to show quotes
+        if self.type == self.STRING:
+            return f'Token({self.type}, \"{self.value}\")'
         return f'Token({self.type}, {self.value})'
-
+    
     def __repr__(self):
         return self.__str__()
 
 def create_token(token_type, value):
-    """Factory function for creating tokens."""
+    """Factory function for creating tokens with validation"""
     return Token(token_type, value)
