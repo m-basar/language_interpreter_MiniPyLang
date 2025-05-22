@@ -1,0 +1,38 @@
+# Basic variable assignment - the foundation of program memory
+quickMaths = 9 + 10
+print quickMaths
+
+# Variable modification - demonstrating program state changes
+quickMaths = quickMaths + 2
+print quickMaths
+
+# Different data types in variables - showing type flexibility
+floatTest = 1.0
+floatTest = floatTest + 5
+print floatTest
+
+# String variables and concatenation - text processing capabilities
+stringCatTest = "10 corgis"
+stringCatTest = stringCatTest + " " + 5 + " more corgis"
+print stringCatTest
+
+# Boolean variables and logic - decision-making foundations
+isRunning = true
+isRunning = isRunning and false
+print isRunning
+
+# Mixed type operations - exploring type interactions
+result = "The answer is " + 42
+print result
+
+# Variable reuse in complex expressions - showing computational power
+x = 5
+y = 3
+z = (x + y) * 2 - x
+print z
+
+# Accumulation patterns - fundamental programming technique
+counter = 0
+counter = counter + 1
+counter = counter + 1
+print counter

@@ -1,41 +1,64 @@
 """
-lexer.py - Enhanced lexical analyser with comprehensive string support
+lexer.py - Enhanced lexer supporting multi-statement programs with variables
 
-String tokenisation introduces several challenges:
-1. Recognising delimiter boundaries
-2. Handling escape sequences for special characters
-3. Proper error reporting for malformed strings
-4. Maintaining position tracking through multi-character tokens
+Stage 4 lexing introduces several new challenges:
+1. Distinguishing assignment (=) from equality (==)
+2. Recognising valid identifier patterns
+3. Handling newlines as statement boundaries
+4. Managing whitespace across multiple lines
 """
 
 from tokens import Token
 
+
 class LexerError(Exception):
-    """Enhanced exception class with position information for better debugging"""
-    def __init__(self, message, position=None):
+    """Enhanced lexer error with line and column information for debugging"""
+    def __init__(self, message, line=None, column=None):
         self.message = message
-        self.position = position
-        super().__init__(f"{message}" + (f" at position {position}" if position else ""))
+        self.line = line
+        self.column = column
+        location_info = ""
+        if line is not None:
+            location_info = f" at line {line}"
+            if column is not None:
+                location_info += f", column {column}"
+        super().__init__(f"{message}{location_info}")
+
 
 class Lexer:
     """
-    Enhanced lexer that can process string literals alongside numbers and operators.
+    Enhanced lexer that processes multi-statement programs with variables.
     
-    The key challenge here is handling strings, which can contain almost any
-    character and require special processing for escape sequences.
+    The lexer now maintains line and column information for better error
+    reporting, which becomes essential as programs grow more complex.
     """
     
     def __init__(self, text):
         self.text = text
         self.pos = 0
         self.current_char = self.text[self.pos] if text else None
+        
+        # Track position for better error reporting
+        self.line = 1
+        self.column = 1
     
     def error(self, message="Invalid character"):
-        """Raise a lexer error with helpful position information"""
-        raise LexerError(message, self.pos)
+        """Enhanced error reporting with position information"""
+        raise LexerError(message, self.line, self.column)
     
     def advance(self):
-        """Move to the next character, handling end-of-input gracefully"""
+        """
+        Advance position with line and column tracking.
+        
+        Tracking line and column information becomes essential for
+        providing helpful error messages in multi-line programs.
+        """
+        if self.current_char == '\n':
+            self.line += 1
+            self.column = 1
+        else:
+            self.column += 1
+        
         self.pos += 1
         if self.pos >= len(self.text):
             self.current_char = None
@@ -43,10 +66,7 @@ class Lexer:
             self.current_char = self.text[self.pos]
     
     def peek(self):
-        """
-        Look ahead one character without consuming it.
-        Essential for multi-character operators like <= and >=.
-        """
+        """Look ahead one character without advancing position"""
         peek_pos = self.pos + 1
         if peek_pos >= len(self.text):
             return None
@@ -54,25 +74,24 @@ class Lexer:
             return self.text[peek_pos]
     
     def skip_whitespace(self):
-        """Skip whitespace characters efficiently"""
-        while self.current_char is not None and self.current_char.isspace():
+        """
+        Skip whitespace but preserve newlines as statement separators.
+        
+        In Stage 4, newlines become meaningful as they separate statements.
+        We skip spaces and tabs but preserve newlines for the parser.
+        """
+        while (self.current_char is not None and 
+               self.current_char in ' \t\r'):  # Note: \n is NOT included
             self.advance()
     
     def read_number(self):
-        """
-        Read numeric literals (unchanged from previous stages)
-        
-        This method demonstrates consistency in our lexer design –
-        each data type has its own specialised reading method.
-        """
+        """Read numeric literals - unchanged from previous stages"""
         result = ''
         
-        # Read integer part
         while self.current_char is not None and self.current_char.isdigit():
             result += self.current_char
             self.advance()
         
-        # Handle decimal point and fractional part
         if self.current_char == '.':
             result += self.current_char
             self.advance()
@@ -84,70 +103,58 @@ class Lexer:
         return float(result)
     
     def read_string(self):
-        """
-        Read a complete string literal with escape sequence support.
-        
-        This method demonstrates how to handle delimited tokens and
-        escape sequences, which are fundamental concepts in language processing.
-        """
+        """Read string literals - unchanged from Stage 3"""
         result = ''
-        start_pos = self.pos  # Remember where the string started for error reporting
+        start_line = self.line
         
-        # Skip the opening quote
-        self.advance()
+        self.advance()  # Skip opening quote
         
         while self.current_char is not None and self.current_char != '"':
             if self.current_char == '\\':
-                # Handle escape sequences for non-printable characters
                 self.advance()
                 
                 if self.current_char is None:
-                    raise LexerError(f"Unterminated string literal starting at position {start_pos}")
+                    raise LexerError(f"Unterminated string literal starting at line {start_line}")
                 
-                # Map escape sequences to their actual characters
                 escape_sequences = {
-                    'n': '\n',    # newline
-                    't': '\t',    # tab
-                    'r': '\r',    # carriage return
-                    '\\': '\\',   # backslash
-                    '"': '"',     # quote
-                    '0': '\0'     # null character
+                    'n': '\n', 't': '\t', 'r': '\r',
+                    '\\': '\\', '"': '"', '0': '\0'
                 }
                 
                 if self.current_char in escape_sequences:
                     result += escape_sequences[self.current_char]
                 else:
-                    # For unknown escape sequences, include both the backslash and character
                     result += '\\' + self.current_char
                 
                 self.advance()
             else:
-                # Regular character - add it directly
                 result += self.current_char
                 self.advance()
         
-        # Check for proper string termination
         if self.current_char != '"':
-            raise LexerError(f"Unterminated string literal starting at position {start_pos}")
+            raise LexerError(f"Unterminated string literal starting at line {start_line}")
         
-        # Skip the closing quote
-        self.advance()
-        
+        self.advance()  # Skip closing quote
         return result
     
     def read_identifier(self):
         """
-        Read identifiers and keywords (enhanced from Stage 2)
+        Read identifiers (variable names) and keywords.
         
-        This method handles variable names and language keywords.
-        The ability to distinguish between identifiers and keywords
-        becomes crucial as the language grows.
+        Identifiers in MiniPyLang follow common programming conventions:
+        - Must start with a letter or underscore
+        - Can contain letters, digits, and underscores
+        - Are case-sensitive
         """
         result = ''
         
+        # Ensure identifier starts with valid character
+        if not (self.current_char.isalpha() or self.current_char == '_'):
+            self.error("Identifier must start with letter or underscore")
+        
         # Read the complete identifier
         while (self.current_char is not None and 
-               (self.current_char.isalpha() or self.current_char == '_')):
+               (self.current_char.isalnum() or self.current_char == '_')):
             result += self.current_char
             self.advance()
         
@@ -155,19 +162,24 @@ class Lexer:
     
     def get_next_token(self):
         """
-        Enhanced tokeniser that handles all MiniPyLang data types.
+        Enhanced tokeniser supporting variables and multi-statement programs.
         
-        This method demonstrates how lexical analysis becomes more complex
-        as we add features, but maintains a clear structure.
+        The tokeniser now handles a richer variety of language constructs
+        while maintaining clear separation of concerns.
         """
         while self.current_char is not None:
             
-            # Skip whitespace
-            if self.current_char.isspace():
+            # Handle newlines as statement separators
+            if self.current_char == '\n':
+                self.advance()
+                return Token(Token.NEWLINE, '\\n')
+            
+            # Skip whitespace (but not newlines)
+            if self.current_char in ' \t\r':
                 self.skip_whitespace()
                 continue
             
-            # String literals - new for Stage 3
+            # String literals
             if self.current_char == '"':
                 return Token(Token.STRING, self.read_string())
             
@@ -175,8 +187,8 @@ class Lexer:
             if self.current_char.isdigit():
                 return Token(Token.NUMBER, self.read_number())
             
-            # Identifiers and keywords (true, false, and, or)
-            if self.current_char.isalpha():
+            # Identifiers and keywords
+            if self.current_char.isalpha() or self.current_char == '_':
                 identifier = self.read_identifier()
                 
                 # Map keywords to their token types
@@ -184,7 +196,8 @@ class Lexer:
                     'true': (Token.TRUE, True),
                     'false': (Token.FALSE, False),
                     'and': (Token.AND, 'and'),
-                    'or': (Token.OR, 'or')
+                    'or': (Token.OR, 'or'),
+                    'print': (Token.PRINT, 'print')
                 }
                 
                 identifier_lower = identifier.lower()
@@ -192,11 +205,48 @@ class Lexer:
                     token_type, token_value = keyword_map[identifier_lower]
                     return Token(token_type, token_value)
                 else:
-                    # For now, we don't support arbitrary identifiers
-                    # This will change in Stage 4 when we add variables
-                    self.error(f"Unknown identifier: {identifier}")
+                    # This is a variable name
+                    return Token(Token.IDENTIFIER, identifier)
             
-            # Single-character arithmetic operators
+            # Assignment vs. equality comparison
+            if self.current_char == '=':
+                if self.peek() == '=':
+                    self.advance()  # consume first =
+                    self.advance()  # consume second =
+                    return Token(Token.EQUAL, '==')
+                else:
+                    self.advance()  # consume single =
+                    return Token(Token.ASSIGN, '=')
+            
+            # Other comparison and logical operators
+            if self.current_char == '!':
+                if self.peek() == '=':
+                    self.advance()
+                    self.advance()
+                    return Token(Token.NOT_EQUAL, '!=')
+                else:
+                    self.advance()
+                    return Token(Token.NOT, '!')
+            
+            if self.current_char == '<':
+                if self.peek() == '=':
+                    self.advance()
+                    self.advance()
+                    return Token(Token.LESS_EQUAL, '<=')
+                else:
+                    self.advance()
+                    return Token(Token.LESS_THAN, '<')
+            
+            if self.current_char == '>':
+                if self.peek() == '=':
+                    self.advance()
+                    self.advance()
+                    return Token(Token.GREATER_EQUAL, '>=')
+                else:
+                    self.advance()
+                    return Token(Token.GREATER_THAN, '>')
+            
+            # Single-character operators
             single_char_tokens = {
                 '+': Token.PLUS,
                 '-': Token.MINUS,
@@ -212,43 +262,7 @@ class Lexer:
                 self.advance()
                 return Token(token_type, char)
             
-            # Multi-character comparison and logical operators
-            if self.current_char == '=':
-                if self.peek() == '=':
-                    self.advance()  # consume first =
-                    self.advance()  # consume second =
-                    return Token(Token.EQUAL, '==')
-                else:
-                    self.error("Single '=' not supported (use '==' for equality)")
-            
-            if self.current_char == '!':
-                if self.peek() == '=':
-                    self.advance()  # consume !
-                    self.advance()  # consume =
-                    return Token(Token.NOT_EQUAL, '!=')
-                else:
-                    self.advance()  # consume !
-                    return Token(Token.NOT, '!')
-            
-            if self.current_char == '<':
-                if self.peek() == '=':
-                    self.advance()  # consume 
-                    self.advance()  # consume =
-                    return Token(Token.LESS_EQUAL, '<=')
-                else:
-                    self.advance()  # consume 
-                    return Token(Token.LESS_THAN, '<')
-            
-            if self.current_char == '>':
-                if self.peek() == '=':
-                    self.advance()  # consume >
-                    self.advance()  # consume =
-                    return Token(Token.GREATER_EQUAL, '>=')
-                else:
-                    self.advance()  # consume >
-                    return Token(Token.GREATER_THAN, '>')
-            
-            # If we reach here, we encountered an invalid character
+            # Unknown character
             self.error(f"Invalid character: '{self.current_char}'")
         
         return Token(Token.EOF, None)

@@ -1,58 +1,72 @@
 """
-tokens.py - Enhanced token definitions including string literals
+tokens.py - Enhanced token system supporting variables and statements
 
-We're adding support for string literals, which introduces new concepts
-about how tokens can be recognised and processed.
+Stage 4 introduces the distinction between expressions (which produce values)
+and statements (which perform actions). This fundamental concept shapes
+how we think about programme execution and state management.
 """
 
 class Token:
     """
-    Enhanced token class that now supports string literals.
+    Enhanced token class supporting variables, assignment, and statements.
     
-    String tokens are different from our previous tokens because they
-    can contain arbitrary content between delimiters (quote marks).
-    This introduces complexity in lexical analysis.
+    The addition of variables requires new token types that represent
+    programme structure rather than just data and operations.
     """
     
-    # Existing token types from Stages 1 and 2
+    # Existing data type tokens from previous stages
     NUMBER = 'NUMBER'
+    STRING = 'STRING'
+    TRUE = 'TRUE'
+    FALSE = 'FALSE'
+    
+    # Existing operator tokens
     PLUS = 'PLUS'
     MINUS = 'MINUS'
     MULTIPLY = 'MULTIPLY'
     DIVIDE = 'DIVIDE'
-    LPAREN = 'LPAREN'
-    RPAREN = 'RPAREN'
-    EOF = 'EOF'
-    
-    # Boolean token types
-    TRUE = 'TRUE'
-    FALSE = 'FALSE'
-    EQUAL = 'EQUAL'
-    NOT_EQUAL = 'NOT_EQUAL'
-    LESS_THAN = 'LESS_THAN'
-    GREATER_THAN = 'GREATER_THAN'
-    LESS_EQUAL = 'LESS_EQUAL'
-    GREATER_EQUAL = 'GREATER_EQUAL'
+    EQUAL = 'EQUAL'            # == for comparison
+    NOT_EQUAL = 'NOT_EQUAL'    # !=
+    LESS_THAN = 'LESS_THAN'    # <
+    GREATER_THAN = 'GREATER_THAN'  # >
+    LESS_EQUAL = 'LESS_EQUAL'  # <=
+    GREATER_EQUAL = 'GREATER_EQUAL'  # >=
     AND = 'AND'
     OR = 'OR'
     NOT = 'NOT'
     
-    # New string token type
-    STRING = 'STRING'              # For string literals like "hello world"
+    # Grouping tokens
+    LPAREN = 'LPAREN'
+    RPAREN = 'RPAREN'
+    
+    # New tokens for Stage 4: Variables and Statements
+    IDENTIFIER = 'IDENTIFIER'  # Variable names like 'quickMaths', 'userName'
+    ASSIGN = 'ASSIGN'          # = for assignment (different from == comparison)
+    PRINT = 'PRINT'            # 'print' keyword for output
+    NEWLINE = 'NEWLINE'        # Line separators for statement boundaries
+    EOF = 'EOF'
     
     def __init__(self, type, value):
         self.type = type
         self.value = value
     
     def __str__(self):
-        # Special handling for string display to show quotes
+        """Enhanced string representation with better formatting for debugging"""
         if self.type == self.STRING:
             return f'Token({self.type}, \"{self.value}\")'
-        return f'Token({self.type}, {self.value})'
+        elif self.type == self.IDENTIFIER:
+            return f'Token({self.type}, {self.value})'
+        else:
+            return f'Token({self.type}, {self.value})'
     
     def __repr__(self):
         return self.__str__()
 
 def create_token(token_type, value):
-    """Factory function for creating tokens with validation"""
+    """
+    Factory function for creating tokens with validation.
+    
+    As our language grows more complex, factory functions help ensure
+    tokens are created consistently and can include validation logic.
+    """
     return Token(token_type, value)
