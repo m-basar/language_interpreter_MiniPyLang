@@ -1,4 +1,4 @@
-# Byte-compiled / optimized / DLL files
+# Byte-compiled / optimised / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -60,12 +60,10 @@ htmlcov/
 # Output files/logs
 *.log
 
-# Personal files and secret tokens (do not store credentials in repo)
+# Personal files and secret tokens 
 *.env
 *.secret
 
-# Example source files folder (optional, remove if you want to include)
-examples/
 
-# Ignore zip archives of submissions
-*.zip
+
+
