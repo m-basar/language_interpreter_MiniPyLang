@@ -1,8 +1,10 @@
 """
-main.py - MiniPyLang Interactive Interpreter and File Processor
+main.py - Enhanced MiniPyLang interpreter supporting Stage 4 programs
 
-MiniPyLang is an educational programming language that demonstrates
-fundamental concepts in arithmetic and boolean expression evaluation.
+The main program now handles multi-statement execution with proper
+variable management and enhanced user feedback. The shift from expression
+evaluation to program execution represents a fundamental change in how
+we think about language processing.
 """
 
 import sys
@@ -12,148 +14,163 @@ from interpreter import Interpreter, InterpreterError
 
 
 def print_tree(node, level=0, prefix="Root: "):
-    """
-    Print a visual representation of the Abstract Syntax Tree.
-    
-    This function helps users understand how MiniPyLang parses expressions
-    by showing the tree structure that represents operator precedence and
-    grouping relationships.
-    """
+    """Enhanced tree printing that handles all Stage 4 node types"""
     if node is None:
         return
     
     indent = "  " * level
     print(f"{indent}{prefix}{node}")
     
-    if hasattr(node, 'left') and hasattr(node, 'right'):
+    # Handle different node types and their structure
+    if hasattr(node, 'statements'):
+        # ProgramNode - show all statements
+        for i, stmt in enumerate(node.statements):
+            print_tree(stmt, level + 1, f"Stmt{i+1}: ")
+    elif hasattr(node, 'left') and hasattr(node, 'right'):
+        # BinaryOperationNode
         print_tree(node.left, level + 1, "L── ")
         print_tree(node.right, level + 1, "R── ")
     elif hasattr(node, 'operand'):
+        # UnaryOperationNode
         print_tree(node.operand, level + 1, "└── ")
+    elif hasattr(node, 'expression'):
+        # AssignmentNode or PrintNode
+        if hasattr(node, 'variable_name'):
+            print_tree(node.expression, level + 1, f"Value: ")
+        else:
+            print_tree(node.expression, level + 1, "Expr: ")
 
 
-def evaluate_expression_with_tree(expression_text, show_tree=False):
+def execute_program_with_tree(program_text, show_tree=False, interpreter=None):
     """
-    Evaluate a MiniPyLang expression and optionally display its parse tree.
+    Execute a MiniPyLang program with optional tree visualization.
     
-    This function demonstrates the complete pipeline of language processing:
-    lexical analysis, parsing, and interpretation.
+    This function handles the complete pipeline of program execution:
+    lexical analysis, parsing, and interpretation with comprehensive
+    error handling and user feedback.
     """
-    print(f"\nExpression: {expression_text}")
-    print("-" * (len(expression_text) + 12))
+    if interpreter is None:
+        interpreter = Interpreter()
+    
+    print(f"\nProgram:")
+    for i, line in enumerate(program_text.strip().split('\n'), 1):
+        if line.strip():
+            print(f"  {i}: {line}")
+    print("-" * 50)
     
     try:
-        # Step 1: Lexical Analysis - Convert text into tokens
-        lexer = Lexer(expression_text)
+        # Step 1: Lexical Analysis
+        lexer = Lexer(program_text)
         
-        # Optional: Show the tokenization process for educational purposes
+        # Optional: Show tokenization for educational purposes
         if show_tree:
             print("Tokens:")
-            temp_lexer = Lexer(expression_text)
+            temp_lexer = Lexer(program_text)
             tokens = []
             while True:
                 token = temp_lexer.get_next_token()
                 tokens.append(token)
                 if token.type == 'EOF':
                     break
-            print("  " + " → ".join(str(token) for token in tokens))
+            print("  " + " → ".join(str(token) for token in tokens if token.type != 'NEWLINE'))
             print()
         
-        # Step 2: Parsing - Build Abstract Syntax Tree from tokens
+        # Step 2: Parsing
         parser = Parser(lexer)
         ast = parser.parse()
         
-        # Step 3: Show tree structure to illustrate parsing decisions
+        # Step 3: Show tree structure if requested
         if show_tree:
             print("Abstract Syntax Tree:")
             print_tree(ast)
             print()
         
-        # Step 4: Interpretation - Execute the parsed expression
-        interpreter = Interpreter()
+        # Step 4: Program Execution
         result = interpreter.interpret(ast)
         
-        print(f"Result: {result}")
-        return result
+        # Show final result if it's an expression (not a statement)
+        if result is not None:
+            print(f"Result: {result}")
+        
+        print()  # Add spacing between programs
+        return interpreter
         
     except (LexerError, ParseError, InterpreterError) as e:
         print(f"MiniPyLang Error: {e}")
-        return None
+        return interpreter
     except Exception as e:
-        print(f"Unexpected error in MiniPyLang: {e}")
-        return None
+        print(f"Unexpected error: {e}")
+        return interpreter
 
 
 def interactive_mode():
-    """
-    Run MiniPyLang in interactive mode for exploration and learning.
-    
-    Interactive mode allows users to experiment with expressions immediately,
-    making it an excellent tool for understanding language concepts.
-    """
+    """Enhanced interactive mode supporting programs and variables"""
     print("=== MiniPyLang Interactive Interpreter ===")
-    print("An educational programming language for arithmetic and boolean expressions")
+    print("Stage 4: Programming with Variables and Statements")
     print()
-    print("Type expressions to see their parse trees and results.")
+    print("Type statements to build programs with persistent variable storage.")
     print("Commands:")
     print("  'tree on' or 'tree off' - toggle tree display")
+    print("  'vars' - show current variables")
+    print("  'clear' - clear all variables")
     print("  'quit' or 'exit' - exit MiniPyLang")
     print("  'help' - show this help message")
-    print("  'about' - learn about MiniPyLang")
     print()
     
-    show_tree = True  # Start with educational tree display enabled
+    show_tree = True
+    interpreter = Interpreter()  # Persistent interpreter for variable storage
     
     while True:
         try:
-            # Use the distinctive MiniPyLang prompt
             user_input = input(">>> ").strip()
             
             if not user_input:
                 continue
             
-            # Handle special commands that make the language more user-friendly
+            # Handle special commands
             if user_input.lower() in ['quit', 'exit']:
                 print("Thank you for using MiniPyLang!")
                 break
             elif user_input.lower() == 'tree on':
                 show_tree = True
-                print("Parse tree display enabled - you'll see how expressions are structured")
+                print("Parse tree display enabled")
                 continue
             elif user_input.lower() == 'tree off':
                 show_tree = False
-                print("Parse tree display disabled - showing results only")
+                print("Parse tree display disabled")
+                continue
+            elif user_input.lower() == 'vars':
+                variables = interpreter.get_environment_state()
+                if variables:
+                    print("Current variables:")
+                    for name, value in variables.items():
+                        if isinstance(value, str):
+                            print(f"  {name} = \"{value}\"")
+                        else:
+                            print(f"  {name} = {value}")
+                else:
+                    print("No variables defined")
+                continue
+            elif user_input.lower() == 'clear':
+                interpreter.reset_environment()
+                print("All variables cleared")
                 continue
             elif user_input.lower() == 'help':
-                print("\nMiniPyLang Commands:")
+                print("\nMiniPyLang Stage 4 Commands:")
                 print("  'tree on' or 'tree off' - toggle parse tree visualization")
+                print("  'vars' - show all current variables")
+                print("  'clear' - clear all variables")
                 print("  'quit' or 'exit' - exit the interpreter")
-                print("  'about' - information about MiniPyLang")
-                print("  Or type any arithmetic or boolean expression!")
-                print("\nExample expressions:")
-                print("  5 + 3 * 2")
-                print("  (10 > 5) and true")
-                print("  !(false or (3 < 1))")
-                print()
-                continue
-            elif user_input.lower() == 'about':
-                print("\nAbout MiniPyLang:")
-                print("MiniPyLang is an educational programming language designed to demonstrate")
-                print("fundamental concepts in language implementation, including:")
-                print("  • Lexical analysis and tokenization")
-                print("  • Recursive descent parsing")
-                print("  • Abstract syntax tree construction")
-                print("  • Tree-walking interpretation")
-                print("  • Operator precedence and associativity")
-                print("  • Type checking and error handling")
-                print()
-                print("It supports arithmetic expressions, boolean logic, and comparisons")
-                print("with proper operator precedence and comprehensive error reporting.")
+                print("\nExample statements:")
+                print("  x = 5")
+                print("  y = x + 3")
+                print("  print y")
+                print("  message = \"Hello \" + \"World\"")
                 print()
                 continue
             
-            # Process the user's MiniPyLang expression
-            evaluate_expression_with_tree(user_input, show_tree)
+            # Execute the user's program
+            interpreter = execute_program_with_tree(user_input, show_tree, interpreter)
             
         except KeyboardInterrupt:
             print("\nThank you for using MiniPyLang!")
@@ -163,34 +180,31 @@ def interactive_mode():
             break
 
 
-def process_file_with_trees(filename, show_trees=False):
-    """
-    Process a file containing MiniPyLang expressions.
-    
-    File processing mode is ideal for testing multiple expressions
-    and demonstrating language capabilities systematically.
-    """
+def process_file_with_programs(filename, show_trees=False):
+    """Process a file containing MiniPyLang programs"""
     try:
         with open(filename, 'r') as file:
-            line_number = 0
+            content = file.read()
             
-            print(f"Processing MiniPyLang expressions from: {filename}")
-            print("=" * 60)
-            
-            for line in file:
-                line_number += 1
-                line = line.strip()
-                
-                # Skip empty lines and comments (lines starting with #)
-                if not line or line.startswith('#'):
-                    continue
-                
-                print(f"\nLine {line_number}")
-                result = evaluate_expression_with_tree(line, show_trees)
-                
+        print(f"Processing MiniPyLang program from: {filename}")
+        print("=" * 60)
+        
+        # Execute the entire file as one program
+        interpreter = Interpreter()
+        execute_program_with_tree(content, show_trees, interpreter)
+        
+        # Show final variable state
+        variables = interpreter.get_environment_state()
+        if variables:
+            print("Final variable state:")
+            for name, value in variables.items():
+                if isinstance(value, str):
+                    print(f"  {name} = \"{value}\"")
+                else:
+                    print(f"  {name} = {value}")
+        
     except FileNotFoundError:
         print(f"MiniPyLang Error: File '{filename}' not found.")
-        print("Please check the filename and try again.")
         sys.exit(1)
     except IOError as e:
         print(f"MiniPyLang Error: Cannot read file '{filename}': {e}")
@@ -198,67 +212,46 @@ def process_file_with_trees(filename, show_trees=False):
 
 
 def main():
-    """
-    MiniPyLang main entry point with comprehensive command-line interface.
-    
-    This function demonstrates professional command-line tool design
-    with clear help messages and multiple operation modes.
-    """
-    
+    """Enhanced main function supporting Stage 4 capabilities"""
     if len(sys.argv) == 1:
-        # No arguments - start interactive mode for exploration
         interactive_mode()
-    
     elif len(sys.argv) == 2:
         argument = sys.argv[1]
         
         if argument in ['-h', '--help']:
-            print("MiniPyLang - Educational Programming Language Interpreter")
-            print("=" * 55)
+            print("MiniPyLang Stage 4 - Programming Language with Variables")
+            print("=" * 60)
             print()
-            print("MiniPyLang is designed to demonstrate fundamental concepts")
-            print("in programming language implementation through a clean,")
-            print("understandable codebase supporting arithmetic and boolean expressions.")
+            print("Now supporting variables, assignments, and multi-statement programs!")
             print()
             print("Usage:")
             print("  python main.py                    # Interactive mode")
-            print("  python main.py <file>             # Process file")
-            print("  python main.py <file> --tree      # Process file with parse trees")
-            print("  python main.py --interactive      # Force interactive mode")
-            print("  python main.py --version          # Show version information")
+            print("  python main.py <file>             # Execute program file")
+            print("  python main.py <file> --tree      # Execute with parse trees")
             print()
-            print("In interactive mode, you can see parse trees and experiment")
-            print("with expressions to understand how the language works.")
+            print("New Stage 4 features:")
+            print("  • Variable assignment: x = 5")
+            print("  • Variable usage: y = x + 3")
+            print("  • Print statements: print y")
+            print("  • Multi-statement programs")
             return
-        
-        elif argument == '--version':
-            print("MiniPyLang Version 1.0")
-            print("Educational Programming Language Interpreter")
-            print("Supports arithmetic expressions and boolean logic")
-            return
-        
         elif argument == '--interactive':
             interactive_mode()
             return
         
-        # Process file without parse trees for clean output
-        process_file_with_trees(argument, show_trees=False)
-    
+        process_file_with_programs(argument, show_trees=False)
     elif len(sys.argv) == 3:
         filename = sys.argv[1]
         flag = sys.argv[2]
         
         if flag == '--tree':
-            # Process file with parse trees for educational insight
-            process_file_with_trees(filename, show_trees=True)
+            process_file_with_programs(filename, show_trees=True)
         else:
             print(f"MiniPyLang Error: Unknown option '{flag}'")
-            print("Use --tree to show parse trees, or -h for help.")
             sys.exit(1)
-    
     else:
         print("MiniPyLang Error: Too many arguments.")
-        print("Use 'python main.py -h' for usage information.")
+        print("Use 'python main.py -h' for help.")
         sys.exit(1)
 
 
