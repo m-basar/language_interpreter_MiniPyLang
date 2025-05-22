@@ -1,49 +1,53 @@
 """
-tokens.py – Token definitions for our arithmetic language
+tokens.py – Token definitions for arithmetic and Boolean expressions
 
-This file defines all the types of symbols recognised by our language.
-Consider tokens as the 'words' within the vocabulary of our programming language.
+This module extends the token vocabulary to include Boolean concepts,
+enabling the language to process both arithmetic and Boolean expressions.
 """
 
 class Token:
     """
-    A token represents a significant symbol in our language.
-    Each token has a type (indicating the category of symbol) and a value (the actual content).
+    Token class with support for arithmetic and Boolean operations.
+    New categories of symbols are included for Boolean logic.
     """
 
-    # Token types – analogous to categories of words in natural language
-    NUMBER = 'NUMBER'        # Numeric literals, e.g., 5, 3.14, -7
-    PLUS = 'PLUS'            # Addition operator +
-    MINUS = 'MINUS'          # Subtraction operator - (also for unary negation)
-    MULTIPLY = 'MULTIPLY'    # Multiplication operator *
-    DIVIDE = 'DIVIDE'        # Division operator /
-    LPAREN = 'LPAREN'        # Left parenthesis (
-    RPAREN = 'RPAREN'        # Right parenthesis )
-    EOF = 'EOF'              # End of input marker
+    # Arithmetic token types
+    NUMBER = 'NUMBER'
+    PLUS = 'PLUS'
+    MINUS = 'MINUS'
+    MULTIPLY = 'MULTIPLY'
+    DIVIDE = 'DIVIDE'
+    LPAREN = 'LPAREN'
+    RPAREN = 'RPAREN'
+    EOF = 'EOF'
+
+    # Boolean literal tokens
+    TRUE = 'TRUE'                # The literal value true
+    FALSE = 'FALSE'              # The literal value false
+
+    # Comparison operator tokens
+    EQUAL = 'EQUAL'              # == (equality)
+    NOT_EQUAL = 'NOT_EQUAL'      # != (inequality)
+    LESS_THAN = 'LESS_THAN'      # <
+    GREATER_THAN = 'GREATER_THAN'  # >
+    LESS_EQUAL = 'LESS_EQUAL'    # <=
+    GREATER_EQUAL = 'GREATER_EQUAL'  # >=
+
+    # Logical operator tokens
+    AND = 'AND'                  # and (logical AND)
+    OR = 'OR'                    # or (logical OR)
+    NOT = 'NOT'                  # ! (logical negation)
 
     def __init__(self, type, value):
-        """
-        Initialise a new token.
-
-        Args:
-            type: The category of this token (one of the constants above)
-            value: The actual content (e.g., the number 5 or the symbol '+')
-        """
         self.type = type
         self.value = value
 
     def __str__(self):
-        """Return a string representation for straightforward debugging."""
         return f'Token({self.type}, {self.value})'
 
     def __repr__(self):
-        """Return the string representation for lists and debugging."""
         return self.__str__()
 
-# Helper function to facilitate token creation
 def create_token(token_type, value):
-    """
-    Factory function for convenient token creation.
-    This will be particularly useful as the language becomes more sophisticated.
-    """
+    """Factory function for creating tokens."""
     return Token(token_type, value)
