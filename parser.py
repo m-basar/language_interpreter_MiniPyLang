@@ -12,7 +12,7 @@ from tokens import Token
 from ast_nodes import (
     NumberNode, BooleanNode, StringNode, VariableNode,
     BinaryOperationNode, UnaryOperationNode,
-    AssignmentNode, PrintNode, ProgramNode
+    AssignmentNode, PrintNode, ProgramNode, DeleteNode, NoneNode
 )
 
 
@@ -43,9 +43,10 @@ class Parser:
     Grammar:
     program     : statement_list
     statement_list : statement (NEWLINE statement)*
-    statement   : assignment | print_stmt | expression
+    statement   : assignment | print_stmt | delete_stmt | expression
     assignment  : IDENTIFIER ASSIGN expression
     print_stmt  : PRINT expression
+    delete_stmt : DEL IDENTIFIER
     expression  : logical_or
     logical_or  : logical_and (OR logical_and)*
     logical_and : equality (AND equality)*
@@ -54,7 +55,7 @@ class Parser:
     term        : factor ((PLUS | MINUS) factor)*
     factor      : unary ((MULTIPLY | DIVIDE) unary)*
     unary       : (PLUS | MINUS | NOT) unary | primary
-    primary     : NUMBER | BOOLEAN | STRING | IDENTIFIER | LPAREN expression RPAREN
+    primary     : NUMBER | BOOLEAN | STRING | IDENTIFIER | NONE | LPAREN expression RPAREN
     """
     
     def __init__(self, lexer):
@@ -83,6 +84,30 @@ class Parser:
             expected_name = token_type.replace('_', ' ').lower()
             self.error(f"Expected {expected_name}")
     
+    def peek_next_token(self):
+        """
+        Look ahead to the next token without consuming the current one.
+        
+        This is essential for distinguishing between variable references
+        and assignment statements.
+        """
+        # Save current lexer state
+        saved_pos = self.lexer.pos
+        saved_char = self.lexer.current_char
+        saved_line = self.lexer.line
+        saved_column = self.lexer.column
+        
+        # Get the next token
+        next_token = self.lexer.get_next_token()
+        
+        # Restore lexer state
+        self.lexer.pos = saved_pos
+        self.lexer.current_char = saved_char
+        self.lexer.line = saved_line
+        self.lexer.column = saved_column
+        
+        return next_token
+    
     def skip_newlines(self):
         """
         Skip newline tokens for flexible statement formatting.
@@ -109,7 +134,8 @@ class Parser:
         # Parse statements until end of input
         while self.current_token.type != Token.EOF:
             stmt = self.statement()
-            statements.append(stmt)
+            if stmt is not None:  # Handle empty statements gracefully
+                statements.append(stmt)
             
             # Handle statement separators (newlines or EOF)
             if self.current_token.type == Token.NEWLINE:
@@ -118,31 +144,57 @@ class Parser:
             elif self.current_token.type == Token.EOF:
                 break
             else:
-                self.error("Expected newline or end of input after statement")
+                # For interactive mode, we might not have newlines
+                break
         
         return ProgramNode(statements)
     
     def statement(self):
         """
-        Parse a single statement: assignment, print, or expression.
+        Parse a single statement: assignment, print, delete, or expression.
         
         This method demonstrates the fundamental distinction between
         statements (which perform actions) and expressions (which produce values).
         """
-        # Check for assignment: IDENTIFIER ASSIGN expression
-        if (self.current_token.type == Token.IDENTIFIER and 
-            hasattr(self.lexer, 'peek') and 
-            self.lexer.peek() == '='):
-            return self.assignment()
+        # Check for del statement: DEL IDENTIFIER
+        if self.current_token.type == Token.DEL:
+            return self.delete_statement()
         
         # Check for print statement: PRINT expression
         elif self.current_token.type == Token.PRINT:
             return self.print_statement()
         
+        # Check for assignment: IDENTIFIER ASSIGN expression
+        elif self.current_token.type == Token.IDENTIFIER:
+            # Look ahead to see if this is an assignment
+            next_token = self.peek_next_token()
+            if next_token.type == Token.ASSIGN:
+                return self.assignment()
+            else:
+                # It's a variable reference in an expression
+                return self.expression()
+        
         # Otherwise, it's an expression statement
         else:
             return self.expression()
     
+    def delete_statement(self):
+        """
+        Parse delete statement: del variable_name
+        
+        Implements explicit variable deletion as mentioned in
+        the Stage 4 coursework requirements.
+        """
+        self.eat(Token.DEL)
+        
+        if self.current_token.type != Token.IDENTIFIER:
+            self.error("Expected variable name after 'del'")
+        
+        variable_name = self.current_token.value
+        self.eat(Token.IDENTIFIER)
+        
+        return DeleteNode(variable_name)
+
     def assignment(self):
         """
         Parse variable assignment: IDENTIFIER ASSIGN expression
@@ -206,6 +258,10 @@ class Parser:
             self.eat(Token.IDENTIFIER)
             return VariableNode(token)
         
+        elif token.type == Token.NONE:
+            self.eat(Token.NONE)
+            return NoneNode(token)
+            
         elif token.type == Token.LPAREN:
             self.eat(Token.LPAREN)
             node = self.expression()
