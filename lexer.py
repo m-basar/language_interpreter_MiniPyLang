@@ -1,11 +1,10 @@
 """
-lexer.py - Enhanced lexer supporting multi-statement programs with variables
+lexer.py - Enhanced lexer with comprehensive comment support
 
-Stage 4 lexing introduces several new challenges:
-1. Distinguishing assignment (=) from equality (==)
-2. Recognising valid identifier patterns
-3. Handling newlines as statement boundaries
-4. Managing whitespace across multiple lines
+Adding comment support demonstrates how language features can be
+completely transparent to most of the language implementation.
+Comments only affect the lexer—the parser and interpreter never
+even know they existed.
 """
 
 from tokens import Token
@@ -27,10 +26,12 @@ class LexerError(Exception):
 
 class Lexer:
     """
-    Enhanced lexer that processes multi-statement programs with variables.
+    Enhanced lexer supporting comments, variables, and multi-statement programs.
     
-    The lexer now maintains line and column information for better error
-    reporting, which becomes essential as programs grow more complex.
+    The addition of comment support demonstrates how some language features
+    affect only one component of the language processor. Comments are
+    recognised and discarded by the lexer, making them invisible to
+    the parser and interpreter.
     """
     
     def __init__(self, text):
@@ -50,8 +51,8 @@ class Lexer:
         """
         Advance position with line and column tracking.
         
-        Tracking line and column information becomes essential for
-        providing helpful error messages in multi-line programs.
+        Position tracking becomes even more important when handling
+        comments, as we need to properly track line boundaries.
         """
         if self.current_char == '\n':
             self.line += 1
@@ -77,12 +78,31 @@ class Lexer:
         """
         Skip whitespace but preserve newlines as statement separators.
         
-        In Stage 4, newlines become meaningful as they separate statements.
-        We skip spaces and tabs but preserve newlines for the parser.
+        Comments are handled separately from whitespace because they
+        have different semantics—comments extend to the end of a line,
+        while whitespace is typically just individual characters.
         """
         while (self.current_char is not None and 
                self.current_char in ' \t\r'):  # Note: \n is NOT included
             self.advance()
+    
+    def skip_comment(self):
+        """
+        Skip a comment from # to the end of the line.
+        
+        This method demonstrates the conceptual simplicity of comments:
+        once we see the comment marker, we simply ignore everything
+        until we reach a newline or the end of the input.
+        """
+        # We're currently at the # character, so advance past it
+        self.advance()
+        
+        # Skip everything until we reach a newline or end of input
+        while self.current_char is not None and self.current_char != '\n':
+            self.advance()
+        
+        # Note: We don't advance past the newline because newlines
+        # are meaningful tokens in our language (statement separators)
     
     def read_number(self):
         """Read numeric literals - unchanged from previous stages"""
@@ -141,10 +161,8 @@ class Lexer:
         """
         Read identifiers (variable names) and keywords.
         
-        Identifiers in MiniPyLang follow common programming conventions:
-        - Must start with a letter or underscore
-        - Can contain letters, digits, and underscores
-        - Are case-sensitive
+        Identifiers remain unchanged with comment support because
+        comments can't appear in the middle of identifiers.
         """
         result = ''
         
@@ -162,12 +180,18 @@ class Lexer:
     
     def get_next_token(self):
         """
-        Enhanced tokeniser supporting variables and multi-statement programs.
+        Enhanced tokeniser supporting comments alongside all other features.
         
-        The tokeniser now handles a richer variety of language constructs
-        while maintaining clear separation of concerns.
+        The key insight here is that comment handling is integrated into
+        the main tokenisation loop. When we encounter a comment marker,
+        we skip the comment and continue tokenising normally.
         """
         while self.current_char is not None:
+            
+            # Handle comments - this is the new addition for comment support
+            if self.current_char == '#':
+                self.skip_comment()
+                continue  # After skipping the comment, continue tokenising
             
             # Handle newlines as statement separators
             if self.current_char == '\n':
@@ -197,7 +221,8 @@ class Lexer:
                     'false': (Token.FALSE, False),
                     'and': (Token.AND, 'and'),
                     'or': (Token.OR, 'or'),
-                    'print': (Token.PRINT, 'print')
+                    'print': (Token.PRINT, 'print'),
+                    'none': (Token.NONE, None)
                 }
                 
                 identifier_lower = identifier.lower()
@@ -218,7 +243,7 @@ class Lexer:
                     self.advance()  # consume single =
                     return Token(Token.ASSIGN, '=')
             
-            # Other comparison and logical operators
+            # Other comparison and logical operators (unchanged)
             if self.current_char == '!':
                 if self.peek() == '=':
                     self.advance()
@@ -246,7 +271,7 @@ class Lexer:
                     self.advance()
                     return Token(Token.GREATER_THAN, '>')
             
-            # Single-character operators
+            # Single-character operators (unchanged)
             single_char_tokens = {
                 '+': Token.PLUS,
                 '-': Token.MINUS,

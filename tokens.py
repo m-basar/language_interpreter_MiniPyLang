@@ -34,7 +34,7 @@ class Token:
     AND = 'AND'
     OR = 'OR'
     NOT = 'NOT'
-    
+    NONE = 'NONE'  # For 'none' literal values
     # Grouping tokens
     LPAREN = 'LPAREN'
     RPAREN = 'RPAREN'

@@ -1,10 +1,9 @@
 """
-main.py - Enhanced MiniPyLang interpreter supporting Stage 4 programs
+main.py - Enhanced MiniPyLang with user-controlled tree visualisation
 
-The main program now handles multi-statement execution with proper
-variable management and enhanced user feedback. The shift from expression
-evaluation to program execution represents a fundamental change in how
-we think about language processing.
+This version implements a more refined user experience where educational
+features like token display and parse tree visualisation are available
+when requested but do not clutter the default programme execution experience.
 """
 
 import sys
@@ -14,27 +13,33 @@ from interpreter import Interpreter, InterpreterError
 
 
 def print_tree(node, level=0, prefix="Root: "):
-    """Enhanced tree printing that handles all Stage 4 node types"""
+    """
+    Enhanced tree printing that handles all Stage 4 node types.
+    
+    This function provides detailed visualisation of how MiniPyLang
+    parses and structures programmes, which is invaluable for learning
+    about language implementation but optional for everyday use.
+    """
     if node is None:
         return
     
     indent = "  " * level
     print(f"{indent}{prefix}{node}")
     
-    # Handle different node types and their structure
+    # Handle different node types and their hierarchical structure
     if hasattr(node, 'statements'):
-        # ProgramNode - show all statements
+        # ProgramNode - show all statements with clear numbering
         for i, stmt in enumerate(node.statements):
             print_tree(stmt, level + 1, f"Stmt{i+1}: ")
     elif hasattr(node, 'left') and hasattr(node, 'right'):
-        # BinaryOperationNode
+        # BinaryOperationNode - show left and right operands
         print_tree(node.left, level + 1, "L── ")
         print_tree(node.right, level + 1, "R── ")
     elif hasattr(node, 'operand'):
-        # UnaryOperationNode
+        # UnaryOperationNode - show the single operand
         print_tree(node.operand, level + 1, "└── ")
     elif hasattr(node, 'expression'):
-        # AssignmentNode or PrintNode
+        # AssignmentNode or PrintNode - show the expression being processed
         if hasattr(node, 'variable_name'):
             print_tree(node.expression, level + 1, f"Value: ")
         else:
@@ -43,18 +48,22 @@ def print_tree(node, level=0, prefix="Root: "):
 
 def execute_program_with_tree(program_text, show_tree=False, interpreter=None):
     """
-    Execute a MiniPyLang program with optional tree visualization.
+    Execute a MiniPyLang programme with optional educational features.
     
-    This function handles the complete pipeline of program execution:
-    lexical analysis, parsing, and interpretation with comprehensive
-    error handling and user feedback.
+    This function demonstrates the progressive disclosure principle:
+    basic execution is clean and focused, while educational features
+    like tokenisation and parse tree display are available when requested.
+    
+    The show_tree parameter controls whether we display the internal
+    processing details or just the programme results.
     """
     if interpreter is None:
         interpreter = Interpreter()
     
-    print(f"\nProgram:")
+    # Always show the programme being executed for context
+    print(f"\nProgramme:")
     for i, line in enumerate(program_text.strip().split('\n'), 1):
-        if line.strip():
+        if line.strip() and not line.strip().startswith('#'):
             print(f"  {i}: {line}")
     print("-" * 50)
     
@@ -62,7 +71,7 @@ def execute_program_with_tree(program_text, show_tree=False, interpreter=None):
         # Step 1: Lexical Analysis
         lexer = Lexer(program_text)
         
-        # Optional: Show tokenization for educational purposes
+        # Optional: Show tokenisation details only when educational mode is enabled
         if show_tree:
             print("Tokens:")
             temp_lexer = Lexer(program_text)
@@ -72,27 +81,32 @@ def execute_program_with_tree(program_text, show_tree=False, interpreter=None):
                 tokens.append(token)
                 if token.type == 'EOF':
                     break
-            print("  " + " → ".join(str(token) for token in tokens if token.type != 'NEWLINE'))
+            # Filter out newlines for cleaner display
+            meaningful_tokens = [token for token in tokens if token.type != 'NEWLINE']
+            print("  " + " → ".join(str(token) for token in meaningful_tokens))
             print()
         
         # Step 2: Parsing
         parser = Parser(lexer)
         ast = parser.parse()
         
-        # Step 3: Show tree structure if requested
+        # Optional: Show parse tree structure only when educational mode is enabled
         if show_tree:
             print("Abstract Syntax Tree:")
             print_tree(ast)
             print()
         
-        # Step 4: Program Execution
+        # Step 3: Programme Execution (always happens)
         result = interpreter.interpret(ast)
         
-        # Show final result if it's an expression (not a statement)
+        # Show final result for expressions (not statements)
         if result is not None:
             print(f"Result: {result}")
         
-        print()  # Add spacing between programs
+        # Add spacing between programme executions for readability
+        if not show_tree:
+            print()  # Minimal spacing when not showing trees
+        
         return interpreter
         
     except (LexerError, ParseError, InterpreterError) as e:
@@ -104,20 +118,30 @@ def execute_program_with_tree(program_text, show_tree=False, interpreter=None):
 
 
 def interactive_mode():
-    """Enhanced interactive mode supporting programs and variables"""
+    """
+    Enhanced interactive mode with user-controlled educational features.
+    
+    This implementation demonstrates how to provide both beginner-friendly
+    default behaviour and advanced educational features that users can
+    enable when they want to learn about language internals.
+    """
     print("=== MiniPyLang Interactive Interpreter ===")
     print("Stage 4: Programming with Variables and Statements")
     print()
-    print("Type statements to build programs with persistent variable storage.")
+    print("Type statements to build programmes with persistent variable storage.")
     print("Commands:")
-    print("  'tree on' or 'tree off' - toggle tree display")
+    print("  'tree on' or 'tree off' - toggle educational tree display")
     print("  'vars' - show current variables")
     print("  'clear' - clear all variables")
     print("  'quit' or 'exit' - exit MiniPyLang")
     print("  'help' - show this help message")
     print()
+    print("Educational tree display is OFF by default. Use 'tree on' to see")
+    print("tokenisation and parse tree details for learning purposes.")
+    print()
     
-    show_tree = True
+    # Default to clean output mode - educational features are opt-in
+    show_tree = False
     interpreter = Interpreter()  # Persistent interpreter for variable storage
     
     while True:
@@ -127,18 +151,23 @@ def interactive_mode():
             if not user_input:
                 continue
             
-            # Handle special commands
+            # Handle special commands with clear feedback
             if user_input.lower() in ['quit', 'exit']:
                 print("Thank you for using MiniPyLang!")
                 break
+                
             elif user_input.lower() == 'tree on':
                 show_tree = True
-                print("Parse tree display enabled")
+                print("Educational tree display ENABLED")
+                print("You will now see tokenisation and parse tree details.")
                 continue
+                
             elif user_input.lower() == 'tree off':
                 show_tree = False
-                print("Parse tree display disabled")
+                print("Educational tree display DISABLED")
+                print("You will now see clean programme execution results.")
                 continue
+                
             elif user_input.lower() == 'vars':
                 variables = interpreter.get_environment_state()
                 if variables:
@@ -151,25 +180,31 @@ def interactive_mode():
                 else:
                     print("No variables defined")
                 continue
+                
             elif user_input.lower() == 'clear':
                 interpreter.reset_environment()
                 print("All variables cleared")
                 continue
+                
             elif user_input.lower() == 'help':
                 print("\nMiniPyLang Stage 4 Commands:")
-                print("  'tree on' or 'tree off' - toggle parse tree visualization")
-                print("  'vars' - show all current variables")
-                print("  'clear' - clear all variables")
+                print("  'tree on' - enable educational token and parse tree display")
+                print("  'tree off' - disable educational display (default)")
+                print("  'vars' - show all current variables and their values")
+                print("  'clear' - clear all variables from memory")
                 print("  'quit' or 'exit' - exit the interpreter")
-                print("\nExample statements:")
+                print()
+                print("Example statements:")
                 print("  x = 5")
                 print("  y = x + 3")
                 print("  print y")
                 print("  message = \"Hello \" + \"World\"")
                 print()
+                print("The 'tree on' command reveals how MiniPyLang processes")
+                print("your code internally - ideal for learning about parsers!")
                 continue
             
-            # Execute the user's program
+            # Execute the user's programme with current tree display setting
             interpreter = execute_program_with_tree(user_input, show_tree, interpreter)
             
         except KeyboardInterrupt:
@@ -181,19 +216,25 @@ def interactive_mode():
 
 
 def process_file_with_programs(filename, show_trees=False):
-    """Process a file containing MiniPyLang programs"""
+    """
+    Process file-based programmes with optional educational features.
+    
+    This function maintains the same progressive disclosure principle
+    for file-based execution: clean results by default, with educational
+    features available through command-line flags.
+    """
     try:
         with open(filename, 'r') as file:
             content = file.read()
             
-        print(f"Processing MiniPyLang program from: {filename}")
+        print(f"Processing MiniPyLang programme from: {filename}")
         print("=" * 60)
         
-        # Execute the entire file as one program
+        # Execute the entire file as one cohesive programme
         interpreter = Interpreter()
         execute_program_with_tree(content, show_trees, interpreter)
         
-        # Show final variable state
+        # Show final programme state for educational value
         variables = interpreter.get_environment_state()
         if variables:
             print("Final variable state:")
@@ -205,6 +246,7 @@ def process_file_with_programs(filename, show_trees=False):
         
     except FileNotFoundError:
         print(f"MiniPyLang Error: File '{filename}' not found.")
+        print("Please check the filename and path.")
         sys.exit(1)
     except IOError as e:
         print(f"MiniPyLang Error: Cannot read file '{filename}': {e}")
@@ -212,9 +254,17 @@ def process_file_with_programs(filename, show_trees=False):
 
 
 def main():
-    """Enhanced main function supporting Stage 4 capabilities"""
+    """
+    Enhanced main function implementing progressive disclosure of features.
+    
+    This implementation demonstrates how command-line interfaces should
+    provide sensible defaults while making advanced features easily
+    accessible through clear, memorable flags and commands.
+    """
     if len(sys.argv) == 1:
+        # No arguments - start interactive mode with clean defaults
         interactive_mode()
+        
     elif len(sys.argv) == 2:
         argument = sys.argv[1]
         
@@ -222,36 +272,51 @@ def main():
             print("MiniPyLang Stage 4 - Programming Language with Variables")
             print("=" * 60)
             print()
-            print("Now supporting variables, assignments, and multi-statement programs!")
+            print("A clean, educational programming language supporting variables,")
+            print("assignments, and multi-statement programmes.")
             print()
             print("Usage:")
-            print("  python main.py                    # Interactive mode")
-            print("  python main.py <file>             # Execute program file")
-            print("  python main.py <file> --tree      # Execute with parse trees")
+            print("  python main.py                    # Interactive mode (clean output)")
+            print("  python main.py <file>             # Execute programme file (clean output)")
+            print("  python main.py <file> --tree      # Execute with educational tree display")
+            print("  python main.py --interactive      # Force interactive mode")
             print()
-            print("New Stage 4 features:")
+            print("Stage 4 features:")
             print("  • Variable assignment: x = 5")
-            print("  • Variable usage: y = x + 3")
+            print("  • Variable usage in expressions: y = x + 3")
             print("  • Print statements: print y")
-            print("  • Multi-statement programs")
+            print("  • Multi-statement programmes with comments")
+            print("  • Educational parse tree visualisation (optional)")
+            print()
+            print("Educational features:")
+            print("  In interactive mode, use 'tree on' to see how MiniPyLang")
+            print("  processes your code internally. Use 'tree off' to return")
+            print("  to clean output mode.")
             return
+            
         elif argument == '--interactive':
             interactive_mode()
             return
         
+        # Process file with clean output by default
         process_file_with_programs(argument, show_trees=False)
+        
     elif len(sys.argv) == 3:
         filename = sys.argv[1]
         flag = sys.argv[2]
         
         if flag == '--tree':
+            # Enable educational tree display for file processing
             process_file_with_programs(filename, show_trees=True)
         else:
             print(f"MiniPyLang Error: Unknown option '{flag}'")
+            print("Use --tree to enable educational tree display.")
+            print("Use -h for complete help information.")
             sys.exit(1)
+            
     else:
         print("MiniPyLang Error: Too many arguments.")
-        print("Use 'python main.py -h' for help.")
+        print("Use 'python main.py -h' for usage information.")
         sys.exit(1)
 
 

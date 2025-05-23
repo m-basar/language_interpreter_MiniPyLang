@@ -213,10 +213,10 @@ class Parser:
             return node
         
         else:
-            self.error("Expected number, boolean, string, variable, or parenthesized expression")
+            self.error("Expected number, boolean, string, variable, or parenthesised expression")
     
-    # The rest of the expression parsing methods remain largely unchanged
-    # but now work within the new statement-based architecture
+    # The rest of the expression parsing methods remain unchanged
+    # but now working within the new statement-based architecture
     
     def unary(self):
         """Parse unary expressions: +, -, ! followed by unary expressions"""

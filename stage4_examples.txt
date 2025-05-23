@@ -16,23 +16,12 @@ stringCatTest = "10 corgis"
 stringCatTest = stringCatTest + " " + 5 + " more corgis"
 print stringCatTest
 
-# Boolean variables and logic - decision-making foundations
-isRunning = true
-isRunning = isRunning and false
-print isRunning
-
-# Mixed type operations - exploring type interactions
-result = "The answer is " + 42
-print result
-
-# Variable reuse in complex expressions - showing computational power
-x = 5
-y = 3
-z = (x + y) * 2 - x
-print z
-
-# Accumulation patterns - fundamental programming technique
-counter = 0
-counter = counter + 1
-counter = counter + 1
-print counter
+# Testing variable persistence across multiple operations
+base = 10
+height = 5
+area = base * height
+perimeter = 2 * (base + height)
+description = "Rectangle: " + base + " x " + height
+print description
+print ("Area: " + area)
+print ("Perimeter: " + perimeter)

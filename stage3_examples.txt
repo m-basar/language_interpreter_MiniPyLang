@@ -1,7 +1,8 @@
-"hello" + " " + "world"
-"foo" + "bar" == "foobar"
-"10 corgis" != "10" + "corgis"
-5 + " apples"
-"The answer is " + 42
-true + " or " + false
-"Test string with\nnew line and\ttab"
+print ("hello world")
+print ("hello" + " " + "world")
+print ("foo" + "bar" == "foobar")
+print ("10 corgis" != "10" + "corgis")
+print (1 + "0")
+print (false == "false")
+print ("Value: " + 123)
+print ("Test: " + true)

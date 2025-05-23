@@ -123,6 +123,20 @@ class PrintNode(ASTNode):
     def __str__(self):
         return f'Print({self.expression})'
 
+class NoneNode(ASTNode):
+    """
+    Represents a None/nil literal value.
+    
+    This node type for explicit
+    None value support in variable persistence management.
+    """
+    
+    def __init__(self, token):
+        self.token = token
+        self.value = None
+    
+    def __str__(self):
+        return 'None(none)'
 
 class ProgramNode(ASTNode):
     """
