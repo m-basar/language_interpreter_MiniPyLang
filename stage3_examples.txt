@@ -1,8 +1,0 @@
-print ("hello world")
-print ("hello" + " " + "world")
-print ("foo" + "bar" == "foobar")
-print ("10 corgis" != "10" + "corgis")
-print (1 + "0")
-print (false == "false")
-print ("Value: " + 123)
-print ("Test: " + true)

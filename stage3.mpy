@@ -1,0 +1,10 @@
+# ======================
+# stage3.mpy
+# ======================
+print "hello" + " " + "world"
+print "foo" + "bar" == "foobar"
+print "10 corgis" != "10" + "corgis"
+print "test" == "test"
+print "abc" != "def"
+print "Hello\nWorld"
+print "Quote: \"Hello\""

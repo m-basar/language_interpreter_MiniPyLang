@@ -1,0 +1,27 @@
+# ======================
+# stage4.mpy 
+# ======================
+quickMaths = 9 + 10
+quickMaths = quickMaths + 2
+print quickMaths
+
+floatTest = 1.0
+floatTest = floatTest + 5
+print floatTest
+
+stringCatTest = "10 corgis"
+stringCatTest = stringCatTest + " " + str(5) + " more corgis"
+print stringCatTest
+
+x = 42
+print str(x)
+print int("123")
+print float("3.14")
+print bool(1)
+
+temp = "temporary"
+print temp
+del temp
+
+result = none
+print result

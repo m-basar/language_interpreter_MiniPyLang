@@ -1,0 +1,54 @@
+# ======================
+# stage5.mpy 
+# ======================
+print "=== Stage 5: Control Flow ==="
+
+# Basic if statement
+x = 10
+if (x > 5) {
+    print "x is greater than 5"
+}
+
+# If-else statement
+age = 18
+if (age >= 18) {
+    print "You are an adult"
+} else {
+    print "You are a minor"
+}
+
+# While loop
+count = 3
+while (count > 0) {
+    print count
+    count = count - 1
+}
+print "Blast off!"
+
+# Nested control structures
+x = 1
+while (x <= 2) {
+    y = 1
+    while (y <= 2) {
+        product = x * y
+        if (product > 2) {
+            print str(x) + " * " + str(y) + " = " + str(product) + " (large)"
+        } else {
+            print str(x) + " * " + str(y) + " = " + str(product)
+        }
+        y = y + 1
+    }
+    x = x + 1
+}
+
+# Nested if-else
+temperature = 25
+if (temperature > 30) {
+    print "Hot day"
+} else {
+    if (temperature > 20) {
+        print "Pleasant day"
+    } else {
+        print "Cold day"
+    }
+}

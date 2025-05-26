@@ -1,13 +1,17 @@
 """
-Enhanced environment.py - Addressing data persistence requirements
+environment.py – Complete Stage 5 variable storage system
 
-This enhanced version provides support for None/nil values and variable
-deletion along with more sophisticated memory management capabilities.
+Provides variable storage and management for MiniPyLang:
+- Variable definition and lookup
+- Variable deletion
+- Error handling for undefined variables
+- Debugging and analysis capabilities
+- Compatible with control flow constructs
 """
 
 
 class EnvironmentError(Exception):
-    """Enhanced exception for environment-related errors"""
+    """Exception for environment-related errors."""
     def __init__(self, message, variable_name=None):
         self.message = message
         self.variable_name = variable_name
@@ -16,39 +20,43 @@ class EnvironmentError(Exception):
 
 class Environment:
     """
-    Enhanced environment data persistence.
+    Variable storage environment for MiniPyLang.
     
-    This version provides explicit support for variable deletion and None/nil
-    values.
+    Manages variable storage with proper error handling and
+    debugging capabilities. Works seamlessly with control flow.
     """
     
     def __init__(self):
-        """Initialise environment with enhanced tracking capabilities"""
+        """Initialise empty environment"""
         self._variables = {}
         
-        # Enhanced tracking for debugging and analysis
+        # Optional: tracking for debugging and analysis
         self._access_history = []
-        self._deletion_history = []
-        
-        # Track variable creation order for debugging
         self._creation_order = []
+        self._deletion_count = 0
     
     def define(self, name, value):
         """
-        Define or redefine a variable with enhanced persistence tracking.
+        Define or redefine a variable.
         
-        This method tracks variable lifecycle more carefully.
+        Args:
+            name (str): Variable name
+            value: Variable value (MiniPyValue instance)
+        
+        Returns:
+            The stored value
         """
         was_defined = name in self._variables
         old_value = self._variables.get(name)
         
+        # Store the value
         self._variables[name] = value
         
         # Track creation order for new variables
         if not was_defined:
             self._creation_order.append(name)
         
-        # Log the operation for debugging
+        # Log operation for debugging
         operation = 'redefine' if was_defined else 'define'
         self._access_history.append((operation, name, old_value, value))
         
@@ -56,19 +64,25 @@ class Environment:
     
     def get(self, name):
         """
-        Enhanced variable lookup with better error handling.
+        Get variable value.
         
-        This method provides more informative error messages and
-        tracks access patterns for debugging purposes.
+        Args:
+            name (str): Variable name
+        
+        Returns:
+            Variable value
+        
+        Raises:
+            EnvironmentError: If variable is undefined
         """
         if name not in self._variables:
-            # Provide helpful suggestions for similar variable names
+            # Provide helpful suggestions for similar names
             similar_names = [var for var in self._variables.keys() 
-                           if abs(len(var) - len(name)) <= 2]
+                           if self._similarity_score(var, name) > 0.6]
             
             error_msg = f"Undefined variable '{name}'"
             if similar_names:
-                error_msg += f". Did you mean one of: {', '.join(similar_names)}?"
+                error_msg += f". Did you mean: {', '.join(similar_names)}?"
             
             raise EnvironmentError(error_msg, name)
         
@@ -79,9 +93,16 @@ class Environment:
     
     def delete(self, name):
         """
-        Delete a variable from the environment.
+        Delete a variable.
         
-        This method implements explicit variable deletion.
+        Args:
+            name (str): Variable name
+        
+        Returns:
+            The deleted value
+        
+        Raises:
+            EnvironmentError: If variable is undefined
         """
         if name not in self._variables:
             raise EnvironmentError(f"Cannot delete undefined variable '{name}'", name)
@@ -93,27 +114,30 @@ class Environment:
         if name in self._creation_order:
             self._creation_order.remove(name)
         
-        # Track deletion for debugging
-        self._deletion_history.append((name, deleted_value))
+        # Track deletion
         self._access_history.append(('delete', name, deleted_value, None))
+        self._deletion_count += 1
         
         return deleted_value
     
     def is_defined(self, name):
         """
-        Enhanced existence checking.
+        Check if variable exists.
         
-        This method helps the interpreter determine variable existence
-        more reliably, supporting the data persistence requirements.
+        Args:
+            name (str): Variable name
+        
+        Returns:
+            bool: True if variable exists
         """
         return name in self._variables
     
     def get_all_variables(self):
         """
-        Return all defined variables with enhanced type information.
+        Get all variables as Python dict.
         
-        This method now provides more detailed information about
-        stored values, helping with debugging and analysis.
+        Returns:
+            dict: All variables with their Python values
         """
         result = {}
         for name, value in self._variables.items():
@@ -123,38 +147,8 @@ class Environment:
                 result[name] = value
         return result
     
-    def get_variable_info(self, name):
-        """
-        Get detailed information about a specific variable.
-        
-        This method provides comprehensive information about variable
-        state, type, and history for debugging purposes.
-        """
-        if name not in self._variables:
-            raise EnvironmentError(f"Variable '{name}' is not defined", name)
-        
-        value = self._variables[name]
-        
-        # Collect access history for this variable
-        variable_history = [entry for entry in self._access_history 
-                          if entry[1] == name]
-        
-        return {
-            'name': name,
-            'value': value.to_python_value() if hasattr(value, 'to_python_value') else value,
-            'type': type(value).__name__,
-            'access_count': len([h for h in variable_history if h[0] == 'get']),
-            'modification_count': len([h for h in variable_history if h[0] in ['define', 'redefine']]),
-            'creation_order': self._creation_order.index(name) if name in self._creation_order else -1
-        }
-    
     def clear(self):
-        """
-        Clear all variables with enhanced cleanup tracking.
-        
-        This method provides complete environment reset while
-        maintaining historical information for debugging.
-        """
+        """Clear all variables"""
         cleared_variables = dict(self._variables)
         self._variables.clear()
         self._creation_order.clear()
@@ -164,15 +158,15 @@ class Environment:
     
     def get_statistics(self):
         """
-        Get comprehensive environment statistics.
+        Get environment statistics for debugging.
         
-        This method provides insights into variable usage patterns
-        and memory utilisation for analysis and optimisation.
+        Returns:
+            dict: Statistics about variable usage
         """
         return {
             'total_variables': len(self._variables),
             'total_operations': len(self._access_history),
-            'deletions': len(self._deletion_history),
+            'deletions': self._deletion_count,
             'variable_types': {
                 name: type(value).__name__ 
                 for name, value in self._variables.items()
@@ -180,8 +174,19 @@ class Environment:
             'creation_order': list(self._creation_order)
         }
     
+    def _similarity_score(self, str1, str2):
+        """Calculate similarity score for helpful error messages"""
+        if len(str1) == 0 or len(str2) == 0:
+            return 0
+        
+        # Simple similarity based on common characters
+        common = set(str1.lower()) & set(str2.lower())
+        total = set(str1.lower()) | set(str2.lower())
+        
+        return len(common) / len(total) if total else 0
+    
     def __str__(self):
-        """Enhanced string representation with type information"""
+        """String representation for debugging"""
         if not self._variables:
             return "Environment: (empty)"
         
@@ -189,8 +194,8 @@ class Environment:
         for name in self._creation_order:
             if name in self._variables:
                 value = self._variables[name]
-                if hasattr(value, 'is_string') and value.is_string():
-                    var_strings.append(f"{name} = \"{value}\"")
+                if hasattr(value, 'is_string') and hasattr(value, 'value') and value.is_string():
+                    var_strings.append(f"{name} = \"{value.value}\"")
                 else:
                     var_strings.append(f"{name} = {value}")
         

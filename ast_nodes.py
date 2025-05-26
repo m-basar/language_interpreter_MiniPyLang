@@ -1,49 +1,52 @@
 """
-ast_nodes.py - Enhanced AST nodes supporting variables and statements
+ast_nodes.py – Stage 5 AST nodes with control flow
 
-Stage 4 introduces the critical distinction between expressions and statements:
-- Expressions produce values (like 5 + 3 or variable lookups)
-- Statements perform actions (like assignments or print operations)
-
-This distinction shapes how we think about program execution and control flow.
+Adds control flow nodes to the existing Stage 4 AST:
+- IfNode for conditional statements
+- WhileNode for loop statements
+- BlockNode for grouped statements
+- InputNode for user input
 """
 
 
 class ASTNode:
-    """Base class for all AST nodes - provides common interface"""
+    """Base class for all AST nodes."""
     pass
 
 
-# Expression nodes (produce values)
+# ============================================================================
+# EXPRESSION NODES (produce values)
+# ============================================================================
+
 class NumberNode(ASTNode):
-    """Numeric literal - unchanged from previous stages"""
-    
+    """Numeric literal: 42, 3.14"""
+
     def __init__(self, token):
         self.token = token
         self.value = token.value
-    
+
     def __str__(self):
         return f'Number({self.value})'
 
 
 class BooleanNode(ASTNode):
-    """Boolean literal - unchanged from previous stages"""
-    
+    """Boolean literal: true, false"""
+
     def __init__(self, token):
         self.token = token
         self.value = token.value
-    
+
     def __str__(self):
         return f'Boolean({self.value})'
 
 
 class StringNode(ASTNode):
-    """String literal - unchanged from Stage 3"""
-    
+    """String literal: "hello world" """
+
     def __init__(self, token):
         self.token = token
         self.value = token.value
-    
+
     def __str__(self):
         if len(self.value) > 20:
             return f'String("{self.value[:17]}...")'
@@ -51,106 +54,204 @@ class StringNode(ASTNode):
             return f'String("{self.value}")'
 
 
-class VariableNode(ASTNode):
-    """
-    Variable reference in an expression context.
-    
-    This node represents looking up a variable's value within an expression.
-    It's the bridge between the program's memory (environment) and
-    expression evaluation.
-    """
-    
+class NoneNode(ASTNode):
+    """None literal: none"""
+
     def __init__(self, token):
         self.token = token
-        self.name = token.value  # The variable name
-    
+        self.value = None
+
+    def __str__(self):
+        return 'None(none)'
+
+
+class VariableNode(ASTNode):
+    """
+    Variable reference: myVariable
+
+    Represents retrieving a variable’s value within an expression.
+    """
+
+    def __init__(self, token):
+        self.token = token
+        self.name = token.value
+
     def __str__(self):
         return f'Variable({self.name})'
 
 
 class BinaryOperationNode(ASTNode):
-    """Binary operations - enhanced but structurally unchanged"""
-    
+    """
+    Binary operation: left operator right
+
+    Represents operations like 5 + 3, x == y, etc.
+    """
+
     def __init__(self, left, operator_token, right):
         self.left = left
         self.token = self.operator = operator_token
         self.right = right
-    
+
     def __str__(self):
         return f'BinaryOp({self.operator.value})'
 
 
 class UnaryOperationNode(ASTNode):
-    """Unary operations - unchanged from previous stages"""
-    
+    """
+    Unary operation: operator operand
+
+    Represents operations like -5, !flag, +x, etc.
+    """
+
     def __init__(self, operator_token, operand):
         self.token = self.operator = operator_token
         self.operand = operand
-    
+
     def __str__(self):
         return f'UnaryOp({self.operator.value})'
 
 
-# Statement nodes (perform actions)
+class ConversionNode(ASTNode):
+    """
+    Type conversion function call: str(value), int(value), etc.
+
+    Represents explicit type conversions that allow safe mixing
+    of types when the programmer’s intent is clear.
+    """
+
+    def __init__(self, conversion_type, expression):
+        self.conversion_type = conversion_type  # 'str', 'int', 'float', 'bool'
+        self.expression = expression            # Expression to convert
+
+    def __str__(self):
+        return f'Convert({self.conversion_type}, {self.expression})'
+
+
+class InputNode(ASTNode):
+    """
+    Input function call: input("prompt")
+
+    Represents getting user input with an optional prompt string.
+    """
+
+    def __init__(self, prompt_expression=None):
+        self.prompt_expression = prompt_expression
+
+    def __str__(self):
+        if self.prompt_expression:
+            return f'Input({self.prompt_expression})'
+        else:
+            return 'Input()'
+
+
+# ============================================================================
+# STATEMENT NODES (perform actions)
+# ============================================================================
+
 class AssignmentNode(ASTNode):
     """
-    Variable assignment statement.
-    
-    Assignment represents the fundamental operation of storing a value
-    in the program's memory. It's a statement because it performs an
-    action (changing state) rather than producing a value.
+    Variable assignment: variable = expression
+
+    Stores a value in the programme’s memory for later use.
     """
-    
+
     def __init__(self, variable_name, expression):
-        self.variable_name = variable_name  # String: the variable name
-        self.expression = expression        # ASTNode: expression to evaluate
-    
+        self.variable_name = variable_name
+        self.expression = expression
+
     def __str__(self):
         return f'Assignment({self.variable_name} = {self.expression})'
 
 
 class PrintNode(ASTNode):
     """
-    Print statement for program output.
-    
-    Print statements represent the primary way programs communicate
-    with users. They evaluate an expression and display the result.
+    Print statement: print expression
+
+    Evaluates an expression and displays the result on screen.
     """
-    
+
     def __init__(self, expression):
-        self.expression = expression  # ASTNode: expression to evaluate and print
-    
+        self.expression = expression
+
     def __str__(self):
         return f'Print({self.expression})'
 
-class NoneNode(ASTNode):
+
+class DeleteNode(ASTNode):
     """
-    Represents a None/nil literal value.
-    
-    This node type for explicit
-    None value support in variable persistence management.
+    Variable deletion: del variable_name
+
+    Removes a variable from the programme’s memory.
     """
-    
-    def __init__(self, token):
-        self.token = token
-        self.value = None
-    
+
+    def __init__(self, variable_name):
+        self.variable_name = variable_name
+
     def __str__(self):
-        return 'None(none)'
+        return f'Delete({self.variable_name})'
+
+
+class BlockNode(ASTNode):
+    """
+    Block of statements: { statement1; statement2; ... }
+
+    Represents a grouped sequence of statements for control flow.
+    """
+
+    def __init__(self, statements):
+        self.statements = statements
+
+    def __str__(self):
+        if len(self.statements) == 1:
+            return f'Block(1 statement)'
+        else:
+            return f'Block({len(self.statements)} statements)'
+
+
+class IfNode(ASTNode):
+    """
+    Conditional statement: if (condition) { ... } else { ... }
+
+    Represents conditional execution with an optional else clause.
+    """
+
+    def __init__(self, condition, then_block, else_block=None):
+        self.condition = condition
+        self.then_block = then_block
+        self.else_block = else_block
+
+    def __str__(self):
+        if self.else_block:
+            return f'If({self.condition}) then {self.then_block} else {self.else_block}'
+        else:
+            return f'If({self.condition}) then {self.then_block}'
+
+
+class WhileNode(ASTNode):
+    """
+    Loop statement: while (condition) { ... }
+
+    Executes the contained block repeatedly while the condition remains true.
+    """
+
+    def __init__(self, condition, body):
+        self.condition = condition
+        self.body = body
+
+    def __str__(self):
+        return f'While({self.condition}) do {self.body}'
+
 
 class ProgramNode(ASTNode):
     """
-    Program root node containing a sequence of statements.
-    
-    The program node represents the top level of our language's structure.
-    It contains a list of statements that execute in sequence, which
-    transforms our language from single-expression evaluation to
-    full program execution.
+    Programme root: sequence of statements
+
+    Represents the entire programme as a list of sequential statements.
     """
-    
+
     def __init__(self, statements):
-        self.statements = statements  # List of statement nodes
-    
+        self.statements = statements
+
     def __str__(self):
         if len(self.statements) == 1:
             return f'Program(1 statement)'

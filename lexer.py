@@ -1,17 +1,17 @@
 """
-lexer.py - Enhanced lexer with comprehensive comment support
+lexer.py – Stage 5 lexical analyser with control flow
 
-Adding comment support demonstrates how language features can be
-completely transparent to most of the language implementation.
-Comments only affect the lexer—the parser and interpreter never
-even know they existed.
+Handles tokenisation of Stage 5 control flow constructs:
+- if, else, while keywords
+- Braces { } for code blocks
+- input() function for user interaction
 """
 
 from tokens import Token
 
 
 class LexerError(Exception):
-    """Enhanced lexer error with line and column information for debugging"""
+    """Lexer error with position information"""
     def __init__(self, message, line=None, column=None):
         self.message = message
         self.line = line
@@ -26,34 +26,24 @@ class LexerError(Exception):
 
 class Lexer:
     """
-    Enhanced lexer supporting comments, variables, and multi-statement programs.
+    Enhanced lexer for Stage 5 MiniPyLang with control flow.
     
-    The addition of comment support demonstrates how some language features
-    affect only one component of the language processor. Comments are
-    recognised and discarded by the lexer, making them invisible to
-    the parser and interpreter.
+    Converts source code text into tokens including control flow constructs.
     """
     
     def __init__(self, text):
         self.text = text
         self.pos = 0
         self.current_char = self.text[self.pos] if text else None
-        
-        # Track position for better error reporting
         self.line = 1
         self.column = 1
     
     def error(self, message="Invalid character"):
-        """Enhanced error reporting with position information"""
+        """Raise lexer error with position information"""
         raise LexerError(message, self.line, self.column)
     
     def advance(self):
-        """
-        Advance position with line and column tracking.
-        
-        Position tracking becomes even more important when handling
-        comments, as we need to properly track line boundaries.
-        """
+        """Move to next character and track position"""
         if self.current_char == '\n':
             self.line += 1
             self.column = 1
@@ -67,7 +57,7 @@ class Lexer:
             self.current_char = self.text[self.pos]
     
     def peek(self):
-        """Look ahead one character without advancing position"""
+        """Look at next character without advancing"""
         peek_pos = self.pos + 1
         if peek_pos >= len(self.text):
             return None
@@ -75,55 +65,46 @@ class Lexer:
             return self.text[peek_pos]
     
     def skip_whitespace(self):
-        """
-        Skip whitespace but preserve newlines as statement separators.
-        
-        Comments are handled separately from whitespace because they
-        have different semantics—comments extend to the end of a line,
-        while whitespace is typically just individual characters.
-        """
+        """Skip spaces, tabs, carriage returns (but not newlines)"""
         while (self.current_char is not None and 
-               self.current_char in ' \t\r'):  # Note: \n is NOT included
+               self.current_char in ' \t\r'):
             self.advance()
     
     def skip_comment(self):
-        """
-        Skip a comment from # to the end of the line.
-        
-        This method demonstrates the conceptual simplicity of comments:
-        once we see the comment marker, we simply ignore everything
-        until we reach a newline or the end of the input.
-        """
-        # We're currently at the # character, so advance past it
-        self.advance()
-        
-        # Skip everything until we reach a newline or end of input
+        """Skip comment from # to end of line"""
+        self.advance()  # Skip the #
         while self.current_char is not None and self.current_char != '\n':
             self.advance()
-        
-        # Note: We don't advance past the newline because newlines
-        # are meaningful tokens in our language (statement separators)
     
     def read_number(self):
-        """Read numeric literals - unchanged from previous stages"""
+        """Read integer or floating-point number"""
         result = ''
+        has_decimal = False
         
+        # Read integer part
         while self.current_char is not None and self.current_char.isdigit():
             result += self.current_char
             self.advance()
         
+        # Check for decimal point
         if self.current_char == '.':
+            has_decimal = True
             result += self.current_char
             self.advance()
             
+            # Read fractional part
             while self.current_char is not None and self.current_char.isdigit():
                 result += self.current_char
                 self.advance()
         
-        return float(result)
+        # Return appropriate numeric type
+        if has_decimal:
+            return float(result)
+        else:
+            return int(result)
     
     def read_string(self):
-        """Read string literals - unchanged from Stage 3"""
+        """Read string literal with escape sequence support"""
         result = ''
         start_line = self.line
         
@@ -131,19 +112,26 @@ class Lexer:
         
         while self.current_char is not None and self.current_char != '"':
             if self.current_char == '\\':
+                # Handle escape sequences
                 self.advance()
                 
                 if self.current_char is None:
                     raise LexerError(f"Unterminated string literal starting at line {start_line}")
                 
+                # Common escape sequences
                 escape_sequences = {
-                    'n': '\n', 't': '\t', 'r': '\r',
-                    '\\': '\\', '"': '"', '0': '\0'
+                    'n': '\n',
+                    't': '\t',
+                    'r': '\r',
+                    '\\': '\\',
+                    '"': '"',
+                    '0': '\0'
                 }
                 
                 if self.current_char in escape_sequences:
                     result += escape_sequences[self.current_char]
                 else:
+                    # Unknown escape sequence – include literally
                     result += '\\' + self.current_char
                 
                 self.advance()
@@ -158,19 +146,14 @@ class Lexer:
         return result
     
     def read_identifier(self):
-        """
-        Read identifiers (variable names) and keywords.
-        
-        Identifiers remain unchanged with comment support because
-        comments can't appear in the middle of identifiers.
-        """
+        """Read identifier or keyword"""
         result = ''
         
-        # Ensure identifier starts with valid character
+        # Must start with letter or underscore
         if not (self.current_char.isalpha() or self.current_char == '_'):
             self.error("Identifier must start with letter or underscore")
         
-        # Read the complete identifier
+        # Read alphanumeric characters and underscores
         while (self.current_char is not None and 
                (self.current_char.isalnum() or self.current_char == '_')):
             result += self.current_char
@@ -179,26 +162,20 @@ class Lexer:
         return result
     
     def get_next_token(self):
-        """
-        Enhanced tokeniser supporting comments alongside all other features.
-        
-        The key insight here is that comment handling is integrated into
-        the main tokenisation loop. When we encounter a comment marker,
-        we skip the comment and continue tokenising normally.
-        """
+        """Get the next token from the input"""
         while self.current_char is not None:
             
-            # Handle comments - this is the new addition for comment support
+            # Skip comments
             if self.current_char == '#':
                 self.skip_comment()
-                continue  # After skipping the comment, continue tokenising
+                continue
             
             # Handle newlines as statement separators
             if self.current_char == '\n':
                 self.advance()
                 return Token(Token.NEWLINE, '\\n')
             
-            # Skip whitespace (but not newlines)
+            # Skip whitespace
             if self.current_char in ' \t\r':
                 self.skip_whitespace()
                 continue
@@ -215,14 +192,30 @@ class Lexer:
             if self.current_char.isalpha() or self.current_char == '_':
                 identifier = self.read_identifier()
                 
-                # Map keywords to their token types
+                # Enhanced keyword map with control flow and functions
                 keyword_map = {
+                    # Existing keywords
                     'true': (Token.TRUE, True),
                     'false': (Token.FALSE, False),
                     'and': (Token.AND, 'and'),
                     'or': (Token.OR, 'or'),
                     'print': (Token.PRINT, 'print'),
-                    'none': (Token.NONE, None)
+                    'del': (Token.DEL, 'del'),
+                    'none': (Token.NONE, None),
+                    
+                    # Type conversion functions
+                    'str': (Token.STR_FUNC, 'str'),
+                    'int': (Token.INT_FUNC, 'int'),
+                    'float': (Token.FLOAT_FUNC, 'float'),
+                    'bool': (Token.BOOL_FUNC, 'bool'),
+                    
+                    # NEW: Control flow keywords
+                    'if': (Token.IF, 'if'),
+                    'else': (Token.ELSE, 'else'),
+                    'while': (Token.WHILE, 'while'),
+                    
+                    # NEW: Input function
+                    'input': (Token.INPUT_FUNC, 'input')
                 }
                 
                 identifier_lower = identifier.lower()
@@ -230,20 +223,18 @@ class Lexer:
                     token_type, token_value = keyword_map[identifier_lower]
                     return Token(token_type, token_value)
                 else:
-                    # This is a variable name
                     return Token(Token.IDENTIFIER, identifier)
             
-            # Assignment vs. equality comparison
+            # Two-character operators
             if self.current_char == '=':
                 if self.peek() == '=':
-                    self.advance()  # consume first =
-                    self.advance()  # consume second =
+                    self.advance()
+                    self.advance()
                     return Token(Token.EQUAL, '==')
                 else:
-                    self.advance()  # consume single =
+                    self.advance()
                     return Token(Token.ASSIGN, '=')
             
-            # Other comparison and logical operators (unchanged)
             if self.current_char == '!':
                 if self.peek() == '=':
                     self.advance()
@@ -271,14 +262,17 @@ class Lexer:
                     self.advance()
                     return Token(Token.GREATER_THAN, '>')
             
-            # Single-character operators (unchanged)
+            # Single-character operators
             single_char_tokens = {
                 '+': Token.PLUS,
                 '-': Token.MINUS,
                 '*': Token.MULTIPLY,
                 '/': Token.DIVIDE,
                 '(': Token.LPAREN,
-                ')': Token.RPAREN
+                ')': Token.RPAREN,
+                # NEW: Braces for code blocks
+                '{': Token.LBRACE,
+                '}': Token.RBRACE
             }
             
             if self.current_char in single_char_tokens:

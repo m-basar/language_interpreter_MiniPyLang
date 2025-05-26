@@ -1,8 +1,12 @@
 """
-interpreter.py - Addressing value storage and floating point
+interpreter.py - Stage 5 interpreter with control flow
 
-This enhanced version provides more sophisticated handling of value types
-and addresses the floating point equality.
+Executes programs with support for control flow constructs:
+- All existing Stage 4 features
+- if/else conditional statements
+- while loops with proper termination
+- Code blocks and nested control structures
+- input() function for user interaction
 """
 
 import math
@@ -10,47 +14,59 @@ from tokens import Token
 from ast_nodes import (
     NumberNode, BooleanNode, StringNode, VariableNode,
     BinaryOperationNode, UnaryOperationNode,
-    AssignmentNode, PrintNode, ProgramNode
+    AssignmentNode, PrintNode, ProgramNode, DeleteNode, NoneNode,
+    ConversionNode,
+    # NEW: Control flow nodes
+    IfNode, WhileNode, BlockNode, InputNode
 )
 from environment import Environment
 
 
 class InterpreterError(Exception):
-    """Enhanced interpreter error with detailed context information"""
+    """Interpreter error with context information"""
     def __init__(self, message, node=None):
         self.message = message
         self.node = node
         super().__init__(message)
 
 
+class ControlFlowException(Exception):
+    """Base class for control flow exceptions"""
+    pass
+
+
+class BreakException(ControlFlowException):
+    """Exception for breaking out of loops (future extension)"""
+    pass
+
+
+class ContinueException(ControlFlowException):
+    """Exception for continuing loops (future extension)"""
+    pass
+
+
 class MiniPyValue:
     """
-    Enhanced value representation addressing Stage 2 in-memory storage.
+    Enhanced value wrapper for type tracking and operations.
     
-    This class provides explicit type handling and helps manage the interaction
-    between different data types in a more systematic way. It also provides
-    a foundation for adding None/nil values.
+    Provides explicit type information and operations for all
+    MiniPyLang values including type conversion support.
     """
     
     # Value type constants
     NUMBER = 'NUMBER'
     BOOLEAN = 'BOOLEAN'
     STRING = 'STRING'
-    NONE = 'NONE'  # Adding None/nil support
+    NONE = 'NONE'
     
     def __init__(self, value, value_type=None):
-        """
-        Create a MiniPy value with explicit type tracking.
-        
-        This addresses the in-memory representation
-        by providing clear type information alongside the actual value.
-        """
+        """Create typed value"""
         self.value = value
         
-        # Infer type if not explicitly provided
+        # Infer type if not provided
         if value_type is None:
             if isinstance(value, bool):
-                # Check bool first since bool is a subclass of int in Python
+                # Check bool first since bool is subclass of int in Python
                 self.type = self.BOOLEAN
             elif isinstance(value, (int, float)):
                 self.type = self.NUMBER
@@ -64,68 +80,95 @@ class MiniPyValue:
             self.type = value_type
     
     def is_number(self):
-        """Check if this value represents a number"""
         return self.type == self.NUMBER
     
     def is_boolean(self):
-        """Check if this value represents a boolean"""
         return self.type == self.BOOLEAN
     
     def is_string(self):
-        """Check if this value represents a string"""
         return self.type == self.STRING
     
     def is_none(self):
-        """Check if this value represents None/nil"""
         return self.type == self.NONE
     
     def to_python_value(self):
-        """Extract the underlying Python value"""
+        """Extract underlying Python value"""
         return self.value
     
+    def is_truthy(self):
+        """Determine truthiness for conditionals"""
+        if self.is_boolean():
+            return self.value
+        elif self.is_number():
+            return self.value != 0
+        elif self.is_string():
+            return len(self.value) > 0
+        elif self.is_none():
+            return False
+        else:
+            return True
+    
     def __str__(self):
-        """String representation for debugging and display"""
+        """String representation for display"""
         if self.is_none():
             return "none"
         elif self.is_boolean():
             return "true" if self.value else "false"
-        elif self.is_number() and isinstance(self.value, float):
-            # Handle floating point display nicely
-            if self.value.is_integer():
-                return str(int(self.value))
-            else:
+        elif self.is_number():
+            if isinstance(self.value, int):
                 return str(self.value)
+            elif isinstance(self.value, float):
+                # Show decimal point for floats
+                if self.value.is_integer():
+                    return f"{self.value:.1f}"
+                else:
+                    return str(self.value)
         else:
             return str(self.value)
 
 
 class Interpreter:
     """
-    Enhanced interpreter for MiniPy language.
+    Enhanced Stage 5 interpreter with control flow for MiniPyLang.
     
-    This version provides more sophisticated value handling, floating point
-    equality management, and support for None/nil values.
+    Executes programs with proper variable management, type checking,
+    error handling, type conversion, and control flow constructs.
     """
     
     # Floating point comparison tolerance
     EPSILON = 1e-10
     
+    # Loop safety limit to prevent infinite loops
+    MAX_LOOP_ITERATIONS = 10000
+    
     def __init__(self):
-        """Initialise interpreter with enhanced environment support"""
+        """Initialize interpreter with empty environment"""
         self.global_env = Environment()
+        
+        # Track loop nesting for safety
+        self.loop_iteration_count = 0
+        self.in_loop = False
     
     def visit_ProgramNode(self, node):
-        """Execute program with enhanced value handling"""
+        """Execute program as sequence of statements"""
+        return self._execute_statement_list(node.statements)
+    
+    def _execute_statement_list(self, statements):
+        """Execute list of statements"""
         last_result = None
         
-        for statement in node.statements:
+        for statement in statements:
             try:
                 result = self.visit(statement)
                 
-                # Keep track of the last expression result
-                if not isinstance(statement, (AssignmentNode, PrintNode)):
+                # Track last expression result for interactive mode
+                if not isinstance(statement, (AssignmentNode, PrintNode, DeleteNode, 
+                                            IfNode, WhileNode)):
                     last_result = result
                     
+            except (BreakException, ContinueException):
+                # Control flow exceptions should bubble up to loop handlers
+                raise
             except InterpreterError as e:
                 raise e
             except Exception as e:
@@ -133,25 +176,243 @@ class Interpreter:
         
         return last_result
     
-    def visit_AssignmentNode(self, node):
+    # NEW: Control flow visitor methods
+    def visit_IfNode(self, node):
         """
-        Enhanced assignment handling with explicit value type management.
+        Execute conditional statement with proper boolean evaluation.
         
-        This addresses data persistence by providing
-        more sophisticated variable lifecycle management.
+        Evaluates condition and executes appropriate branch.
         """
         try:
-            # Evaluate the expression and wrap in MiniPyValue
+            # Evaluate condition
+            condition_value = self.visit(node.condition)
+            condition_minipy = self._ensure_minipy_value(condition_value)
+            
+            # Determine truthiness
+            is_true = condition_minipy.is_truthy()
+            
+            if is_true and node.then_block:
+                # Execute then branch
+                return self.visit(node.then_block)
+            elif not is_true and node.else_block:
+                # Execute else branch
+                return self.visit(node.else_block)
+            
+            return None
+            
+        except (BreakException, ContinueException):
+            raise  # Pass through control flow exceptions
+        except Exception as e:
+            raise InterpreterError(f"Error in if statement: {str(e)}", node)
+    
+    def visit_WhileNode(self, node):
+        """
+        Execute while loop with safety limits and proper termination.
+        
+        Repeatedly evaluates condition and executes body until condition is false.
+        """
+        try:
+            # Safety: Track that we're in a loop
+            was_in_loop = self.in_loop
+            self.in_loop = True
+            iteration_count = 0
+            
+            while True:
+                # Safety check for infinite loops
+                iteration_count += 1
+                if iteration_count > self.MAX_LOOP_ITERATIONS:
+                    raise InterpreterError(
+                        f"Loop exceeded maximum iterations ({self.MAX_LOOP_ITERATIONS}). "
+                        "Possible infinite loop detected.", 
+                        node
+                    )
+                
+                # Evaluate condition
+                condition_value = self.visit(node.condition)
+                condition_minipy = self._ensure_minipy_value(condition_value)
+                
+                # Check if loop should continue
+                if not condition_minipy.is_truthy():
+                    break
+                
+                # Execute loop body
+                try:
+                    self.visit(node.body)
+                except BreakException:
+                    # Break out of loop (future extension)
+                    break
+                except ContinueException:
+                    # Continue to next iteration (future extension)
+                    continue
+            
+            # Restore loop state
+            self.in_loop = was_in_loop
+            return None
+            
+        except (BreakException, ContinueException):
+            # Restore loop state before re-raising
+            self.in_loop = was_in_loop
+            raise
+        except Exception as e:
+            # Restore loop state before raising error
+            self.in_loop = was_in_loop
+            raise InterpreterError(f"Error in while loop: {str(e)}", node)
+    
+    def visit_BlockNode(self, node):
+        """Execute block of statements"""
+        try:
+            return self._execute_statement_list(node.statements)
+        except Exception as e:
+            raise InterpreterError(f"Error in code block: {str(e)}", node)
+    
+    def visit_InputNode(self, node):
+        """
+        Handle input function calls with optional prompts.
+        
+        Supports input() and input("prompt") forms.
+        """
+        try:
+            # Handle optional prompt
+            if node.prompt_expression:
+                prompt_value = self.visit(node.prompt_expression)
+                prompt_minipy = self._ensure_minipy_value(prompt_value)
+                
+                # Convert prompt to string
+                if prompt_minipy.is_string():
+                    prompt_text = prompt_minipy.value
+                else:
+                    prompt_text = str(prompt_minipy)
+            else:
+                prompt_text = ""
+            
+            # Get user input
+            try:
+                user_input = input(prompt_text)
+                return user_input  # Return as string
+            except EOFError:
+                # Handle end-of-file (Ctrl+D/Ctrl+Z)
+                return ""
+            except KeyboardInterrupt:
+                # Handle Ctrl+C gracefully
+                raise InterpreterError("Input interrupted by user", node)
+                
+        except InterpreterError:
+            raise
+        except Exception as e:
+            raise InterpreterError(f"Error in input() function: {str(e)}", node)
+    
+    # Enhanced type conversion with better error handling
+    def visit_ConversionNode(self, node):
+        """
+        Handle type conversion function calls with comprehensive error handling.
+        """
+        try:
+            # Evaluate the expression to convert
+            value = self.visit(node.expression)
+            conversion_type = node.conversion_type
+            
+            if conversion_type == 'str':
+                # Convert any value to string representation
+                if isinstance(value, bool):
+                    return 'true' if value else 'false'
+                elif value is None:
+                    return 'none'
+                elif isinstance(value, (int, float)):
+                    if isinstance(value, float) and value.is_integer():
+                        return f"{value:.1f}"  # Show 5.0 not 5
+                    else:
+                        return str(value)
+                elif isinstance(value, str):
+                    return value  # Already a string
+                else:
+                    return str(value)
+            
+            elif conversion_type == 'int':
+                # Convert to integer with validation
+                if isinstance(value, int):
+                    return value  # Already an integer
+                elif isinstance(value, float):
+                    return int(value)  # Truncate decimal part: 3.7 -> 3
+                elif isinstance(value, bool):
+                    return 1 if value else 0
+                elif isinstance(value, str):
+                    # Try to parse string as integer
+                    try:
+                        stripped = value.strip()
+                        if stripped == '':
+                            return 0  # Empty string -> 0
+                        elif stripped.lower() == 'true':
+                            return 1
+                        elif stripped.lower() == 'false':
+                            return 0
+                        elif stripped.lower() == 'none':
+                            return 0
+                        else:
+                            # Handle both "42" and "42.0" -> 42
+                            return int(float(stripped))
+                    except ValueError:
+                        raise InterpreterError(f"Cannot convert string '{value}' to integer", node)
+                elif value is None:
+                    return 0
+                else:
+                    raise InterpreterError(f"Cannot convert {type(value).__name__} to integer", node)
+            
+            elif conversion_type == 'float':
+                # Convert to floating point number
+                if isinstance(value, (int, float)):
+                    return float(value)
+                elif isinstance(value, bool):
+                    return 1.0 if value else 0.0
+                elif isinstance(value, str):
+                    try:
+                        stripped = value.strip()
+                        if stripped == '':
+                            return 0.0
+                        elif stripped.lower() == 'true':
+                            return 1.0
+                        elif stripped.lower() == 'false':
+                            return 0.0
+                        elif stripped.lower() == 'none':
+                            return 0.0
+                        else:
+                            return float(stripped)
+                    except ValueError:
+                        raise InterpreterError(f"Cannot convert string '{value}' to float", node)
+                elif value is None:
+                    return 0.0
+                else:
+                    raise InterpreterError(f"Cannot convert {type(value).__name__} to float", node)
+            
+            elif conversion_type == 'bool':
+                # Convert to boolean using truthiness rules
+                if isinstance(value, bool):
+                    return value
+                elif isinstance(value, (int, float)):
+                    return value != 0  # 0 is false, everything else is true
+                elif isinstance(value, str):
+                    # String truthiness: empty string is false, non-empty is true
+                    return len(value) > 0
+                elif value is None:
+                    return False
+                else:
+                    return True  # Most objects are truthy
+            
+            else:
+                raise InterpreterError(f"Unknown conversion type: {conversion_type}", node)
+                
+        except InterpreterError:
+            raise
+        except Exception as e:
+            raise InterpreterError(f"Error in {node.conversion_type}() conversion: {str(e)}", node)
+    
+    # Existing Stage 4 visitor methods (unchanged)
+    def visit_AssignmentNode(self, node):
+        """Execute variable assignment: var = expr"""
+        try:
+            # Evaluate expression
             raw_value = self.visit(node.expression)
             
-            # Handle special case for None/nil assignment
-            if isinstance(raw_value, str) and raw_value.lower() == 'none':
-                # Following Lua's approach: assigning 'none' deletes the variable
-                if self.global_env.is_defined(node.variable_name):
-                    self.global_env.delete(node.variable_name)
-                return None
-            
-            # Wrap in MiniPyValue for better type management
+            # Wrap in MiniPyValue for type tracking
             value = self._ensure_minipy_value(raw_value)
             
             # Store in environment
@@ -166,16 +427,16 @@ class Interpreter:
             )
     
     def visit_PrintNode(self, node):
-        """Enhanced print with better formatting for all value types"""
+        """Execute print statement: print expr"""
         try:
             value = self.visit(node.expression)
             minipy_value = self._ensure_minipy_value(value)
             
-            # Format output appropriately for each type
+            # Format output appropriately
             if minipy_value.is_none():
                 print("none")
             elif minipy_value.is_string():
-                print(minipy_value.value)  # Strings display without quotes
+                print(minipy_value.value)  # Strings without quotes
             else:
                 print(str(minipy_value))
             
@@ -185,7 +446,7 @@ class Interpreter:
             raise InterpreterError(f"Error in print statement: {str(e)}", node)
     
     def visit_VariableNode(self, node):
-        """Enhanced variable lookup with proper value type handling"""
+        """Look up variable value"""
         try:
             minipy_value = self.global_env.get(node.name)
             return minipy_value.to_python_value()
@@ -196,48 +457,62 @@ class Interpreter:
                 node
             )
     
+    def visit_DeleteNode(self, node):
+        """Delete variable: del var"""
+        try:
+            if not self.global_env.is_defined(node.variable_name):
+                raise InterpreterError(
+                    f"Cannot delete undefined variable '{node.variable_name}'", 
+                    node
+                )
+            
+            self.global_env.delete(node.variable_name)
+            return None
+            
+        except Exception as e:
+            raise InterpreterError(
+                f"Error deleting variable '{node.variable_name}': {str(e)}", 
+                node
+            )
+    
+    # Literal value visitors
     def visit_NumberNode(self, node):
-        """Return raw number value for internal processing"""
         return node.value
     
     def visit_BooleanNode(self, node):
-        """Return raw boolean value for internal processing"""
         return node.value
     
     def visit_StringNode(self, node):
-        """Return raw string value for internal processing"""
         return node.value
     
+    def visit_NoneNode(self, node):
+        return None
+    
     def visit_BinaryOperationNode(self, node):
-        """
-        Enhanced binary operations.
-        
-        This implementation provides epsilon-based floating point equality
-        and more robust type checking across all operations.
-        """
+        """Execute binary operations with strict type checking"""
         try:
             left_value = self.visit(node.left)
             right_value = self.visit(node.right)
             
-            # Handle arithmetic operations
+            # Arithmetic operations
             if node.operator.type == Token.PLUS:
                 return self._handle_addition(left_value, right_value, node)
             
             elif node.operator.type == Token.MINUS:
                 self._ensure_numbers(left_value, right_value, '-', node)
-                return left_value - right_value
+                return self._perform_arithmetic(left_value, right_value, lambda a, b: a - b)
             
             elif node.operator.type == Token.MULTIPLY:
                 self._ensure_numbers(left_value, right_value, '*', node)
-                return left_value * right_value
+                return self._perform_arithmetic(left_value, right_value, lambda a, b: a * b)
             
             elif node.operator.type == Token.DIVIDE:
                 self._ensure_numbers(left_value, right_value, '/', node)
-                if abs(right_value) < self.EPSILON:  # Better zero checking
+                if abs(right_value) < self.EPSILON:
                     raise InterpreterError("Division by zero", node)
-                return left_value / right_value
+                return float(left_value) / float(right_value)
             
-            # Enhanced comparison operations with floating point awareness
+            # Comparison operations
             elif node.operator.type == Token.LESS_THAN:
                 self._ensure_numbers(left_value, right_value, '<', node)
                 return left_value < right_value
@@ -254,7 +529,7 @@ class Interpreter:
                 self._ensure_numbers(left_value, right_value, '>=', node)
                 return left_value >= right_value
             
-            # Enhanced equality operations addressing floating point concerns
+            # Equality operations
             elif node.operator.type == Token.EQUAL:
                 return self._handle_equality(left_value, right_value)
             
@@ -279,7 +554,7 @@ class Interpreter:
             raise InterpreterError(f"Error in binary operation: {str(e)}", node)
     
     def visit_UnaryOperationNode(self, node):
-        """Enhanced unary operations with better error handling"""
+        """Execute unary operations"""
         try:
             operand_value = self.visit(node.operand)
             
@@ -303,37 +578,46 @@ class Interpreter:
         except Exception as e:
             raise InterpreterError(f"Error in unary operation: {str(e)}", node)
     
-    def _handle_addition(self, left_value, right_value, node):
-        """Enhanced addition with comprehensive type handling"""
-        # String concatenation with automatic conversion
-        if isinstance(left_value, str) or isinstance(right_value, str):
-            left_str = self._convert_to_string(left_value)
-            right_str = self._convert_to_string(right_value)
-            return left_str + right_str
-        elif isinstance(left_value, (int, float)) and isinstance(right_value, (int, float)):
-            return left_value + right_value
+    # Helper methods (unchanged from Stage 4)
+    def _perform_arithmetic(self, left, right, operation):
+        """Perform arithmetic while preserving types"""
+        if isinstance(left, int) and isinstance(right, int):
+            return operation(left, right)
         else:
+            return operation(float(left), float(right))
+    
+    def _handle_addition(self, left_value, right_value, node):
+        """Handle addition with strict type checking"""
+        # String concatenation
+        if isinstance(left_value, str) and isinstance(right_value, str):
+            return left_value + right_value
+        
+        # Numeric addition
+        elif isinstance(left_value, (int, float)) and isinstance(right_value, (int, float)):
+            return self._perform_arithmetic(left_value, right_value, lambda a, b: a + b)
+        
+        # Type mismatch error
+        else:
+            left_type = type(left_value).__name__
+            right_type = type(right_value).__name__
             raise InterpreterError(
-                f"Cannot add {type(left_value).__name__} and {type(right_value).__name__}", 
+                f"Cannot add {left_type} and {right_type}. "
+                f"Numbers and strings cannot be mixed in addition operations. "
+                f"Use explicit string conversion if concatenation is intended.",
                 node
             )
     
     def _handle_equality(self, left_value, right_value):
-        """
-        Enhanced equality handling.
-        
-        This implementation uses epsilon-based comparison for floating point
-        numbers to avoid the common pitfalls of floating point equality.
-        """
+        """Handle equality with floating point awareness"""
         # Different types are never equal
         if type(left_value) != type(right_value):
             return False
         
-        # Special handling for floating point numbers
+        # Floating point comparison with epsilon
         if isinstance(left_value, float) and isinstance(right_value, float):
             return abs(left_value - right_value) < self.EPSILON
         
-        # Handle mixed int/float comparisons
+        # Mixed int/float comparison
         if isinstance(left_value, (int, float)) and isinstance(right_value, (int, float)):
             return abs(float(left_value) - float(right_value)) < self.EPSILON
         
@@ -341,28 +625,14 @@ class Interpreter:
         return left_value == right_value
     
     def _ensure_minipy_value(self, value):
-        """Convert raw Python values to MiniPyValue instances"""
+        """Convert raw values to MiniPyValue instances"""
         if isinstance(value, MiniPyValue):
             return value
         else:
             return MiniPyValue(value)
     
-    def _convert_to_string(self, value):
-        """Enhanced string conversion handling all value types"""
-        if isinstance(value, bool):
-            return 'true' if value else 'false'
-        elif isinstance(value, float):
-            if value.is_integer():
-                return str(int(value))
-            else:
-                return str(value)
-        elif value is None:
-            return 'none'
-        else:
-            return str(value)
-    
     def _ensure_number(self, value, operator, node):
-        """Enhanced number type checking"""
+        """Ensure value is a number"""
         if not isinstance(value, (int, float)):
             raise InterpreterError(
                 f"Operator '{operator}' requires a number, got {type(value).__name__}", 
@@ -370,7 +640,7 @@ class Interpreter:
             )
     
     def _ensure_numbers(self, left, right, operator, node):
-        """Enhanced number type checking for binary operations"""
+        """Ensure both values are numbers"""
         if not isinstance(left, (int, float)) or not isinstance(right, (int, float)):
             raise InterpreterError(
                 f"Operator '{operator}' requires numbers, got {type(left).__name__} and {type(right).__name__}", 
@@ -378,7 +648,7 @@ class Interpreter:
             )
     
     def _ensure_boolean(self, value, operator, node):
-        """Enhanced boolean type checking"""
+        """Ensure value is a boolean"""
         if not isinstance(value, bool):
             raise InterpreterError(
                 f"Operator '{operator}' requires a boolean, got {type(value).__name__}", 
@@ -386,7 +656,7 @@ class Interpreter:
             )
     
     def _ensure_booleans(self, left, right, operator, node):
-        """Enhanced boolean type checking for binary operations"""
+        """Ensure both values are booleans"""
         if not isinstance(left, bool) or not isinstance(right, bool):
             raise InterpreterError(
                 f"Operator '{operator}' requires booleans, got {type(left).__name__} and {type(right).__name__}", 
@@ -394,7 +664,7 @@ class Interpreter:
             )
     
     def visit(self, node):
-        """Enhanced visitor dispatch with comprehensive error handling"""
+        """Visitor dispatch method"""
         if node is None:
             return None
         
@@ -407,21 +677,25 @@ class Interpreter:
         return visitor_method(node)
     
     def interpret(self, tree):
-        """Main interpretation method with enhanced error handling"""
+        """Main interpretation entry point"""
         if tree is None:
             raise InterpreterError("Cannot interpret empty program")
         
         try:
             return self.visit(tree)
+        except (BreakException, ContinueException) as e:
+            raise InterpreterError(f"Control flow statement outside loop context")
         except InterpreterError:
             raise
         except Exception as e:
             raise InterpreterError(f"Unexpected runtime error: {str(e)}")
     
     def get_environment_state(self):
-        """Return current variable state for debugging"""
+        """Get current variables for debugging"""
         return self.global_env.get_all_variables()
     
     def reset_environment(self):
-        """Clear all variables for testing"""
+        """Clear all variables"""
         self.global_env.clear()
+        self.loop_iteration_count = 0
+        self.in_loop = False

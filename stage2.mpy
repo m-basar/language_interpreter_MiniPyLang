@@ -1,0 +1,14 @@
+# ======================
+# stage2.mpy
+# ======================
+print true == false
+print true != false
+print (5 < 10)
+print !(5 - 4 > 3 * 2 == !false)
+print true and true
+print false and true
+print (0 < 1) or false
+print false or false
+print 5 >= 5
+print !(true and false)
+print (3 > 1) and (2 < 4)
