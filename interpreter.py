@@ -1,12 +1,12 @@
 """
-interpreter.py - Stage 5 interpreter with control flow
+interpreter.py - Enhanced Stage 6 interpreter with list support
 
-Executes programs with support for control flow constructs:
-- All existing Stage 4 features
-- if/else conditional statements
-- while loops with proper termination
-- Code blocks and nested control structures
-- input() function for user interaction
+Executes programmes with support for list data structures:
+- All existing Stage 5 features
+- List literals: [1, 2, 3]
+- Index access: list[0]
+- Index assignment: list[0] = value
+- List functions: append(list, value), remove(list, index), len(list)
 """
 
 import math
@@ -14,10 +14,11 @@ from tokens import Token
 from ast_nodes import (
     NumberNode, BooleanNode, StringNode, VariableNode,
     BinaryOperationNode, UnaryOperationNode,
-    AssignmentNode, PrintNode, ProgramNode, DeleteNode, NoneNode,
-    ConversionNode,
-    # NEW: Control flow nodes
-    IfNode, WhileNode, BlockNode, InputNode
+    AssignmentNode, PrintNode, ProgrammeNode, DeleteNode, NoneNode,
+    ConversionNode, InputNode,
+    IfNode, WhileNode, BlockNode,
+    # NEW: List nodes
+    ListNode, IndexAccessNode, IndexAssignmentNode, ListFunctionNode
 )
 from environment import Environment
 
@@ -47,10 +48,10 @@ class ContinueException(ControlFlowException):
 
 class MiniPyValue:
     """
-    Enhanced value wrapper for type tracking and operations.
+    Enhanced value wrapper for type tracking and operations including lists.
     
     Provides explicit type information and operations for all
-    MiniPyLang values including type conversion support.
+    MiniPyLang values including the new list data type.
     """
     
     # Value type constants
@@ -58,6 +59,7 @@ class MiniPyValue:
     BOOLEAN = 'BOOLEAN'
     STRING = 'STRING'
     NONE = 'NONE'
+    LIST = 'LIST'  # NEW: List type
     
     def __init__(self, value, value_type=None):
         """Create typed value"""
@@ -72,6 +74,9 @@ class MiniPyValue:
                 self.type = self.NUMBER
             elif isinstance(value, str):
                 self.type = self.STRING
+            elif isinstance(value, list):
+                # NEW: List type detection
+                self.type = self.LIST
             elif value is None:
                 self.type = self.NONE
             else:
@@ -91,6 +96,10 @@ class MiniPyValue:
     def is_none(self):
         return self.type == self.NONE
     
+    def is_list(self):
+        """NEW: Check if value is a list"""
+        return self.type == self.LIST
+    
     def to_python_value(self):
         """Extract underlying Python value"""
         return self.value
@@ -102,6 +111,9 @@ class MiniPyValue:
         elif self.is_number():
             return self.value != 0
         elif self.is_string():
+            return len(self.value) > 0
+        elif self.is_list():
+            # NEW: Non-empty lists are truthy
             return len(self.value) > 0
         elif self.is_none():
             return False
@@ -123,16 +135,33 @@ class MiniPyValue:
                     return f"{self.value:.1f}"
                 else:
                     return str(self.value)
+        elif self.is_list():
+            # NEW: List string representation
+            if len(self.value) == 0:
+                return "[]"
+            else:
+                # Convert each element to string representation
+                elements = []
+                for item in self.value:
+                    if isinstance(item, str):
+                        elements.append(f'"{item}"')
+                    elif isinstance(item, bool):
+                        elements.append("true" if item else "false")
+                    elif item is None:
+                        elements.append("none")
+                    else:
+                        elements.append(str(item))
+                return "[" + ", ".join(elements) + "]"
         else:
             return str(self.value)
 
 
 class Interpreter:
     """
-    Enhanced Stage 5 interpreter with control flow for MiniPyLang.
+    Enhanced Stage 6 interpreter with list support for MiniPyLang.
     
-    Executes programs with proper variable management, type checking,
-    error handling, type conversion, and control flow constructs.
+    Executes programmes with proper variable management, type checking,
+    error handling, type conversion, control flow, and list operations.
     """
     
     # Floating point comparison tolerance
@@ -142,15 +171,15 @@ class Interpreter:
     MAX_LOOP_ITERATIONS = 10000
     
     def __init__(self):
-        """Initialize interpreter with empty environment"""
+        """Initialise interpreter with empty environment"""
         self.global_env = Environment()
         
         # Track loop nesting for safety
         self.loop_iteration_count = 0
         self.in_loop = False
     
-    def visit_ProgramNode(self, node):
-        """Execute program as sequence of statements"""
+    def visit_ProgrammeNode(self, node):
+        """Execute programme as sequence of statements"""
         return self._execute_statement_list(node.statements)
     
     def _execute_statement_list(self, statements):
@@ -163,7 +192,7 @@ class Interpreter:
                 
                 # Track last expression result for interactive mode
                 if not isinstance(statement, (AssignmentNode, PrintNode, DeleteNode, 
-                                            IfNode, WhileNode)):
+                                            IfNode, WhileNode, IndexAssignmentNode)):
                     last_result = result
                     
             except (BreakException, ContinueException):
@@ -176,13 +205,220 @@ class Interpreter:
         
         return last_result
     
-    # NEW: Control flow visitor methods
-    def visit_IfNode(self, node):
+    # NEW: List-related visitor methods
+    def visit_ListNode(self, node):
         """
-        Execute conditional statement with proper boolean evaluation.
+        Create list literal: [element1, element2, element3]
         
-        Evaluates condition and executes appropriate branch.
+        Evaluates all elements and creates a Python list.
         """
+        try:
+            elements = []
+            for element_node in node.elements:
+                element_value = self.visit(element_node)
+                elements.append(element_value)
+            
+            return elements
+            
+        except Exception as e:
+            raise InterpreterError(f"Error creating list: {str(e)}", node)
+    
+    def visit_IndexAccessNode(self, node):
+        """
+        Access list element: list[index]
+        
+        Supports both positive and negative indexing like Python.
+        """
+        try:
+            # Evaluate the list expression
+            list_value = self.visit(node.list_expression)
+            
+            # Ensure it's actually a list
+            if not isinstance(list_value, list):
+                raise InterpreterError(
+                    f"Cannot index {type(list_value).__name__}, only lists support indexing",
+                    node
+                )
+            
+            # Evaluate the index expression
+            index_value = self.visit(node.index_expression)
+            
+            # Ensure index is a number
+            if not isinstance(index_value, (int, float)):
+                raise InterpreterError(
+                    f"List indices must be numbers, got {type(index_value).__name__}",
+                    node
+                )
+            
+            # Convert to integer index
+            index = int(index_value)
+            
+            # Check bounds
+            if index < 0:
+                # Support negative indexing like Python
+                index = len(list_value) + index
+            
+            if index < 0 or index >= len(list_value):
+                raise InterpreterError(
+                    f"List index out of range: index {int(index_value)} for list of length {len(list_value)}",
+                    node
+                )
+            
+            return list_value[index]
+            
+        except InterpreterError:
+            raise
+        except Exception as e:
+            raise InterpreterError(f"Error accessing list index: {str(e)}", node)
+    
+    def visit_IndexAssignmentNode(self, node):
+        """
+        Assign to list element: list[index] = value
+        
+        Modifies the list in place.
+        """
+        try:
+            # Evaluate the list expression
+            list_value = self.visit(node.list_expression)
+            
+            # Ensure it's actually a list
+            if not isinstance(list_value, list):
+                raise InterpreterError(
+                    f"Cannot assign to index of {type(list_value).__name__}, only lists support index assignment",
+                    node
+                )
+            
+            # Evaluate the index expression
+            index_value = self.visit(node.index_expression)
+            
+            # Ensure index is a number
+            if not isinstance(index_value, (int, float)):
+                raise InterpreterError(
+                    f"List indices must be numbers, got {type(index_value).__name__}",
+                    node
+                )
+            
+            # Convert to integer index
+            index = int(index_value)
+            
+            # Check bounds
+            if index < 0:
+                # Support negative indexing like Python
+                index = len(list_value) + index
+            
+            if index < 0 or index >= len(list_value):
+                raise InterpreterError(
+                    f"List index out of range: index {int(index_value)} for list of length {len(list_value)}",
+                    node
+                )
+            
+            # Evaluate the new value
+            new_value = self.visit(node.value_expression)
+            
+            # Assign to the list
+            list_value[index] = new_value
+            
+            return None
+            
+        except InterpreterError:
+            raise
+        except Exception as e:
+            raise InterpreterError(f"Error in list index assignment: {str(e)}", node)
+    
+    def visit_ListFunctionNode(self, node):
+        """
+        Handle list function calls: append(list, value), remove(list, index), len(list)
+        
+        Implements the three core list operations required by the assignment.
+        """
+        try:
+            function_name = node.function_name
+            arguments = node.arguments
+            
+            if function_name == 'len':
+                # len(list) - returns length of list
+                if len(arguments) != 1:
+                    raise InterpreterError(f"len() takes exactly 1 argument ({len(arguments)} given)", node)
+                
+                list_value = self.visit(arguments[0])
+                
+                if not isinstance(list_value, list):
+                    raise InterpreterError(
+                        f"len() argument must be a list, got {type(list_value).__name__}",
+                        node
+                    )
+                
+                return len(list_value)
+            
+            elif function_name == 'append':
+                # append(list, value) - adds value to end of list
+                if len(arguments) != 2:
+                    raise InterpreterError(f"append() takes exactly 2 arguments ({len(arguments)} given)", node)
+                
+                list_value = self.visit(arguments[0])
+                new_value = self.visit(arguments[1])
+                
+                if not isinstance(list_value, list):
+                    raise InterpreterError(
+                        f"append() first argument must be a list, got {type(list_value).__name__}",
+                        node
+                    )
+                
+                # Modify list in place (like Python's list.append())
+                list_value.append(new_value)
+                
+                # Return the modified list for chaining (optional)
+                return list_value
+            
+            elif function_name == 'remove':
+                # remove(list, index) - removes element at index from list
+                if len(arguments) != 2:
+                    raise InterpreterError(f"remove() takes exactly 2 arguments ({len(arguments)} given)", node)
+                
+                list_value = self.visit(arguments[0])
+                index_value = self.visit(arguments[1])
+                
+                if not isinstance(list_value, list):
+                    raise InterpreterError(
+                        f"remove() first argument must be a list, got {type(list_value).__name__}",
+                        node
+                    )
+                
+                if not isinstance(index_value, (int, float)):
+                    raise InterpreterError(
+                        f"remove() second argument must be a number, got {type(index_value).__name__}",
+                        node
+                    )
+                
+                # Convert to integer index
+                index = int(index_value)
+                
+                # Check bounds
+                if index < 0:
+                    # Support negative indexing
+                    index = len(list_value) + index
+                
+                if index < 0 or index >= len(list_value):
+                    raise InterpreterError(
+                        f"remove() index out of range: index {int(index_value)} for list of length {len(list_value)}",
+                        node
+                    )
+                
+                # Remove and return the removed element
+                removed_value = list_value.pop(index)
+                return removed_value
+            
+            else:
+                raise InterpreterError(f"Unknown list function: {function_name}", node)
+                
+        except InterpreterError:
+            raise
+        except Exception as e:
+            raise InterpreterError(f"Error in list function {node.function_name}(): {str(e)}", node)
+    
+    # Control flow visitor methods (unchanged from Stage 5)
+    def visit_IfNode(self, node):
+        """Execute conditional statement with proper boolean evaluation."""
         try:
             # Evaluate condition
             condition_value = self.visit(node.condition)
@@ -206,11 +442,7 @@ class Interpreter:
             raise InterpreterError(f"Error in if statement: {str(e)}", node)
     
     def visit_WhileNode(self, node):
-        """
-        Execute while loop with safety limits and proper termination.
-        
-        Repeatedly evaluates condition and executes body until condition is false.
-        """
+        """Execute while loop with safety limits and proper termination."""
         try:
             # Safety: Track that we're in a loop
             was_in_loop = self.in_loop
@@ -266,11 +498,7 @@ class Interpreter:
             raise InterpreterError(f"Error in code block: {str(e)}", node)
     
     def visit_InputNode(self, node):
-        """
-        Handle input function calls with optional prompts.
-        
-        Supports input() and input("prompt") forms.
-        """
+        """Handle input function calls with optional prompts."""
         try:
             # Handle optional prompt
             if node.prompt_expression:
@@ -303,9 +531,7 @@ class Interpreter:
     
     # Enhanced type conversion with better error handling
     def visit_ConversionNode(self, node):
-        """
-        Handle type conversion function calls with comprehensive error handling.
-        """
+        """Handle type conversion function calls with comprehensive error handling."""
         try:
             # Evaluate the expression to convert
             value = self.visit(node.expression)
@@ -324,6 +550,10 @@ class Interpreter:
                         return str(value)
                 elif isinstance(value, str):
                     return value  # Already a string
+                elif isinstance(value, list):
+                    # NEW: Convert list to string representation
+                    minipy_val = MiniPyValue(value)
+                    return str(minipy_val)
                 else:
                     return str(value)
             
@@ -354,6 +584,9 @@ class Interpreter:
                         raise InterpreterError(f"Cannot convert string '{value}' to integer", node)
                 elif value is None:
                     return 0
+                elif isinstance(value, list):
+                    # NEW: Convert list length to integer
+                    return len(value)
                 else:
                     raise InterpreterError(f"Cannot convert {type(value).__name__} to integer", node)
             
@@ -380,6 +613,9 @@ class Interpreter:
                         raise InterpreterError(f"Cannot convert string '{value}' to float", node)
                 elif value is None:
                     return 0.0
+                elif isinstance(value, list):
+                    # NEW: Convert list length to float
+                    return float(len(value))
                 else:
                     raise InterpreterError(f"Cannot convert {type(value).__name__} to float", node)
             
@@ -391,6 +627,9 @@ class Interpreter:
                     return value != 0  # 0 is false, everything else is true
                 elif isinstance(value, str):
                     # String truthiness: empty string is false, non-empty is true
+                    return len(value) > 0
+                elif isinstance(value, list):
+                    # NEW: List truthiness: empty list is false, non-empty is true
                     return len(value) > 0
                 elif value is None:
                     return False
@@ -578,7 +817,7 @@ class Interpreter:
         except Exception as e:
             raise InterpreterError(f"Error in unary operation: {str(e)}", node)
     
-    # Helper methods (unchanged from Stage 4)
+    # Helper methods (enhanced with list support)
     def _perform_arithmetic(self, left, right, operation):
         """Perform arithmetic while preserving types"""
         if isinstance(left, int) and isinstance(right, int):
@@ -596,21 +835,28 @@ class Interpreter:
         elif isinstance(left_value, (int, float)) and isinstance(right_value, (int, float)):
             return self._perform_arithmetic(left_value, right_value, lambda a, b: a + b)
         
+        # NEW: List concatenation
+        elif isinstance(left_value, list) and isinstance(right_value, list):
+            return left_value + right_value
+        
         # Type mismatch error
         else:
             left_type = type(left_value).__name__
             right_type = type(right_value).__name__
             raise InterpreterError(
                 f"Cannot add {left_type} and {right_type}. "
-                f"Numbers and strings cannot be mixed in addition operations. "
-                f"Use explicit string conversion if concatenation is intended.",
+                f"Numbers, strings, and lists can only be added to their own type. "
+                f"Use explicit conversion if mixing is intended.",
                 node
             )
     
     def _handle_equality(self, left_value, right_value):
-        """Handle equality with floating point awareness"""
-        # Different types are never equal
+        """Handle equality with floating point awareness and list support"""
+        # Different types are never equal (except numbers)
         if type(left_value) != type(right_value):
+            # Allow int/float comparison
+            if isinstance(left_value, (int, float)) and isinstance(right_value, (int, float)):
+                return abs(float(left_value) - float(right_value)) < self.EPSILON
             return False
         
         # Floating point comparison with epsilon
@@ -620,6 +866,16 @@ class Interpreter:
         # Mixed int/float comparison
         if isinstance(left_value, (int, float)) and isinstance(right_value, (int, float)):
             return abs(float(left_value) - float(right_value)) < self.EPSILON
+        
+        # NEW: List equality (element-wise comparison)
+        if isinstance(left_value, list) and isinstance(right_value, list):
+            if len(left_value) != len(right_value):
+                return False
+            
+            for i in range(len(left_value)):
+                if not self._handle_equality(left_value[i], right_value[i]):
+                    return False
+            return True
         
         # Standard equality for other types
         return left_value == right_value
@@ -679,7 +935,7 @@ class Interpreter:
     def interpret(self, tree):
         """Main interpretation entry point"""
         if tree is None:
-            raise InterpreterError("Cannot interpret empty program")
+            raise InterpreterError("Cannot interpret empty programme")
         
         try:
             return self.visit(tree)
