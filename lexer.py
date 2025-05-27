@@ -1,10 +1,10 @@
 """
-lexer.py – Stage 5 lexical analyser with control flow
+lexer.py - Enhanced Stage 6 lexical analyser with list support
 
-Handles tokenisation of Stage 5 control flow constructs:
-- if, else, while keywords
-- Braces { } for code blocks
-- input() function for user interaction
+Handles tokenisation of Stage 6 list constructs:
+- Square brackets [ ] for list literals and indexing
+- Commas , for list element separation
+- Built-in list functions: append, remove, len
 """
 
 from tokens import Token
@@ -26,9 +26,9 @@ class LexerError(Exception):
 
 class Lexer:
     """
-    Enhanced lexer for Stage 5 MiniPyLang with control flow.
+    Enhanced lexer for Stage 6 MiniPyLang with list support.
     
-    Converts source code text into tokens including control flow constructs.
+    Converts source code text into tokens including list constructs.
     """
     
     def __init__(self, text):
@@ -77,7 +77,7 @@ class Lexer:
             self.advance()
     
     def read_number(self):
-        """Read integer or floating-point number"""
+        """Read integer or floating point number"""
         result = ''
         has_decimal = False
         
@@ -131,7 +131,7 @@ class Lexer:
                 if self.current_char in escape_sequences:
                     result += escape_sequences[self.current_char]
                 else:
-                    # Unknown escape sequence – include literally
+                    # Unknown escape sequence - include literally
                     result += '\\' + self.current_char
                 
                 self.advance()
@@ -192,7 +192,7 @@ class Lexer:
             if self.current_char.isalpha() or self.current_char == '_':
                 identifier = self.read_identifier()
                 
-                # Enhanced keyword map with control flow and functions
+                # Enhanced keyword map with control flow and list functions
                 keyword_map = {
                     # Existing keywords
                     'true': (Token.TRUE, True),
@@ -209,13 +209,18 @@ class Lexer:
                     'float': (Token.FLOAT_FUNC, 'float'),
                     'bool': (Token.BOOL_FUNC, 'bool'),
                     
-                    # NEW: Control flow keywords
+                    # Control flow keywords
                     'if': (Token.IF, 'if'),
                     'else': (Token.ELSE, 'else'),
                     'while': (Token.WHILE, 'while'),
                     
-                    # NEW: Input function
-                    'input': (Token.INPUT_FUNC, 'input')
+                    # Input function
+                    'input': (Token.INPUT_FUNC, 'input'),
+                    
+                    # NEW: List built-in functions
+                    'append': (Token.APPEND_FUNC, 'append'),
+                    'remove': (Token.REMOVE_FUNC, 'remove'),
+                    'len': (Token.LEN_FUNC, 'len')
                 }
                 
                 identifier_lower = identifier.lower()
@@ -270,9 +275,12 @@ class Lexer:
                 '/': Token.DIVIDE,
                 '(': Token.LPAREN,
                 ')': Token.RPAREN,
-                # NEW: Braces for code blocks
                 '{': Token.LBRACE,
-                '}': Token.RBRACE
+                '}': Token.RBRACE,
+                # NEW: Square brackets and comma for lists
+                '[': Token.LBRACKET,
+                ']': Token.RBRACKET,
+                ',': Token.COMMA
             }
             
             if self.current_char in single_char_tokens:
