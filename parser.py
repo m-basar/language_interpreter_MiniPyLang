@@ -1,21 +1,22 @@
 """
-parser.py - Enhanced Stage 5 parser with control flow
+parser.py - Enhanced Stage 6 parser with list support
 
-Converts tokens into an AST supporting control flow constructs:
-- if statements with optional else clauses
-- while loops
-- Code blocks with braces
-- input() function calls
+Converts tokens into AST supporting list constructs:
+- List literals: [1, 2, 3]
+- Index access: list[index]
+- Index assignment: list[index] = value
+- List functions: append(list, value), remove(list, index), len(list)
 """
 
 from tokens import Token
 from ast_nodes import (
     NumberNode, BooleanNode, StringNode, VariableNode,
     BinaryOperationNode, UnaryOperationNode,
-    AssignmentNode, PrintNode, ProgramNode, DeleteNode, NoneNode,
-    ConversionNode,
-    # NEW: Control flow nodes
-    IfNode, WhileNode, BlockNode, InputNode
+    AssignmentNode, PrintNode, ProgrammeNode, DeleteNode, NoneNode,
+    ConversionNode, InputNode,
+    IfNode, WhileNode, BlockNode,
+    # NEW: List nodes
+    ListNode, IndexAccessNode, IndexAssignmentNode, ListFunctionNode
 )
 
 
@@ -37,29 +38,34 @@ class ParseError(Exception):
 
 class Parser:
     """
-    Enhanced Stage 5 parser with control flow for MiniPyLang.
+    Enhanced Stage 6 parser with list support for MiniPyLang.
     
-    Grammar (enhanced with control flow):
+    Grammar (enhanced with lists):
     programme     : statement_list
     statement_list : statement (NEWLINE statement)*
-    statement   : assignment | print_stmt | delete_stmt | if_stmt | while_stmt | expression
-    assignment  : IDENTIFIER ASSIGN expression
-    print_stmt  : PRINT expression
-    delete_stmt : DEL IDENTIFIER
-    if_stmt     : IF LPAREN expression RPAREN block (ELSE block)?
-    while_stmt  : WHILE LPAREN expression RPAREN block
-    block       : LBRACE statement_list RBRACE | statement
-    expression  : logical_or
-    logical_or  : logical_and (OR logical_and)*
-    logical_and : equality (AND equality)*
-    equality    : comparison ((EQUAL | NOT_EQUAL) comparison)*
-    comparison  : term ((LESS_THAN | GREATER_THAN | LESS_EQUAL | GREATER_EQUAL) term)*
-    term        : factor ((PLUS | MINUS) factor)*
-    factor      : unary ((MULTIPLY | DIVIDE) unary)*
-    unary       : (PLUS | MINUS | NOT) unary | primary
-    primary     : NUMBER | BOOLEAN | STRING | IDENTIFIER | NONE | conversion_call | input_call | LPAREN expression RPAREN
+    statement     : assignment | index_assignment | print_stmt | delete_stmt | if_stmt | while_stmt | expression
+    assignment    : IDENTIFIER ASSIGN expression
+    index_assignment : postfix_expr LBRACKET expression RBRACKET ASSIGN expression
+    print_stmt    : PRINT expression
+    delete_stmt   : DEL IDENTIFIER
+    if_stmt       : IF LPAREN expression RPAREN block (ELSE block)?
+    while_stmt    : WHILE LPAREN expression RPAREN block
+    block         : LBRACE statement_list RBRACE | statement
+    expression    : logical_or
+    logical_or    : logical_and (OR logical_and)*
+    logical_and   : equality (AND equality)*
+    equality      : comparison ((EQUAL | NOT_EQUAL) comparison)*
+    comparison    : term ((LESS_THAN | GREATER_THAN | LESS_EQUAL | GREATER_EQUAL) term)*
+    term          : factor ((PLUS | MINUS) factor)*
+    factor        : unary ((MULTIPLY | DIVIDE) unary)*
+    unary         : (PLUS | MINUS | NOT) unary | postfix
+    postfix       : primary (LBRACKET expression RBRACKET)*
+    primary       : NUMBER | BOOLEAN | STRING | IDENTIFIER | NONE | list_literal | 
+                    conversion_call | list_function_call | input_call | LPAREN expression RPAREN
+    list_literal  : LBRACKET (expression (COMMA expression)*)? RBRACKET
     conversion_call : (STR_FUNC | INT_FUNC | FLOAT_FUNC | BOOL_FUNC) LPAREN expression RPAREN
-    input_call  : INPUT_FUNC LPAREN (expression)? RPAREN
+    list_function_call : (APPEND_FUNC | REMOVE_FUNC | LEN_FUNC) LPAREN expression (COMMA expression)* RPAREN
+    input_call    : INPUT_FUNC LPAREN (expression)? RPAREN
     """
     
     def __init__(self, lexer):
@@ -84,7 +90,7 @@ class Parser:
             self.error(f"Expected {expected_name}")
     
     def peek_next_token(self):
-        """Look ahead at the next token without consuming the current token"""
+        """Look ahead at next token without consuming current token"""
         # Save lexer state
         saved_pos = self.lexer.pos
         saved_char = self.lexer.current_char
@@ -107,7 +113,7 @@ class Parser:
         while self.current_token.type == Token.NEWLINE:
             self.current_token = self.lexer.get_next_token()
     
-    def program(self):
+    def programme(self):
         """Parse complete programme: sequence of statements"""
         statements = []
         
@@ -127,13 +133,13 @@ class Parser:
             elif self.current_token.type == Token.EOF:
                 break
             else:
-                # For interactive mode – allow statements without newlines
+                # For interactive mode - allow statements without newlines
                 break
         
-        return ProgramNode(statements)
+        return ProgrammeNode(statements)
     
     def statement(self):
-        """Parse individual statements including control flow"""
+        """Parse individual statements including list operations"""
         # Delete statement: del variable
         if self.current_token.type == Token.DEL:
             return self.delete_statement()
@@ -142,23 +148,37 @@ class Parser:
         elif self.current_token.type == Token.PRINT:
             return self.print_statement()
         
-        # NEW: If statement
+        # If statement
         elif self.current_token.type == Token.IF:
             return self.if_statement()
         
-        # NEW: While statement
+        # While statement
         elif self.current_token.type == Token.WHILE:
             return self.while_statement()
         
-        # Assignment or variable reference
+        # Assignment, index assignment, or expression
         elif self.current_token.type == Token.IDENTIFIER:
-            # Look ahead to determine if this is assignment
+            # Look ahead to determine statement type
             next_token = self.peek_next_token()
             if next_token.type == Token.ASSIGN:
                 return self.assignment()
             else:
-                # Variable reference in expression
-                return self.expression()
+                # Could be index assignment: variable[index] = value
+                # Parse as expression first, then check for assignment
+                expr = self.expression()
+                
+                # Check if this is an index assignment
+                if (isinstance(expr, IndexAccessNode) and 
+                    self.current_token.type == Token.ASSIGN):
+                    self.eat(Token.ASSIGN)
+                    value_expr = self.expression()
+                    return IndexAssignmentNode(
+                        expr.list_expression,
+                        expr.index_expression,
+                        value_expr
+                    )
+                else:
+                    return expr
         
         # Expression statement
         else:
@@ -194,13 +214,9 @@ class Parser:
         expression = self.expression()
         return PrintNode(expression)
     
-    # NEW: Control flow statement parsing
+    # Control flow statement parsing (unchanged from Stage 5)
     def if_statement(self):
-        """
-        Parse if statement: if (condition) { statements } else { statements }
-        
-        The else clause is optional.
-        """
+        """Parse if statement: if (condition) { statements } else { statements }"""
         self.eat(Token.IF)
         self.eat(Token.LPAREN)
         condition = self.expression()
@@ -228,11 +244,7 @@ class Parser:
         return WhileNode(condition, body)
     
     def block(self):
-        """
-        Parse code block: { statement1; statement2; ... } or single statement
-        
-        Supports both braced blocks and single statements for flexibility.
-        """
+        """Parse code block: { statement1; statement2; ... } or single statement"""
         if self.current_token.type == Token.LBRACE:
             # Braced block
             self.eat(Token.LBRACE)
@@ -339,11 +351,28 @@ class Parser:
             self.eat(token.type)
             return UnaryOperationNode(token, self.unary())
         else:
-            return self.primary()
+            return self.postfix()
+    
+    def postfix(self):
+        """
+        NEW: Parse postfix operations including index access: expr[index][index2]...
+        
+        This handles chained index operations like list[0][1] for nested lists.
+        """
+        node = self.primary()
+        
+        # Handle chained index access
+        while self.current_token.type == Token.LBRACKET:
+            self.eat(Token.LBRACKET)
+            index_expr = self.expression()
+            self.eat(Token.RBRACKET)
+            node = IndexAccessNode(node, index_expr)
+        
+        return node
     
     def primary(self):
         """
-        Parse primary expressions including type conversion and input functions.
+        Parse primary expressions including NEW list literals and functions.
         """
         token = self.current_token
         
@@ -372,13 +401,21 @@ class Parser:
             self.eat(Token.NONE)
             return NoneNode(token)
         
+        # NEW: List literal
+        elif token.type == Token.LBRACKET:
+            return self.list_literal()
+        
         # Type conversion functions
         elif token.type in (Token.STR_FUNC, Token.INT_FUNC, Token.FLOAT_FUNC, Token.BOOL_FUNC):
             return self.conversion_call()
         
-        # NEW: Input function
+        # Input function
         elif token.type == Token.INPUT_FUNC:
             return self.input_call()
+        
+        # NEW: List functions
+        elif token.type in (Token.APPEND_FUNC, Token.REMOVE_FUNC, Token.LEN_FUNC):
+            return self.list_function_call()
         
         elif token.type == Token.LPAREN:
             self.eat(Token.LPAREN)
@@ -387,12 +424,39 @@ class Parser:
             return node
         
         else:
-            self.error("Expected number, boolean, string, variable, function call, or parenthesised expression")
+            self.error("Expected number, boolean, string, variable, list, function call, or parenthesised expression")
+    
+    def list_literal(self):
+        """
+        NEW: Parse list literal: [element1, element2, element3]
+        
+        Supports empty lists [] and lists with mixed types.
+        """
+        self.eat(Token.LBRACKET)
+        
+        elements = []
+        
+        # Handle empty list
+        if self.current_token.type == Token.RBRACKET:
+            self.eat(Token.RBRACKET)
+            return ListNode(elements)
+        
+        # Parse first element
+        elements.append(self.expression())
+        
+        # Parse remaining elements
+        while self.current_token.type == Token.COMMA:
+            self.eat(Token.COMMA)
+            # Allow trailing comma: [1, 2, 3,]
+            if self.current_token.type == Token.RBRACKET:
+                break
+            elements.append(self.expression())
+        
+        self.eat(Token.RBRACKET)
+        return ListNode(elements)
     
     def conversion_call(self):
-        """
-        Parse type conversion function calls: str(expr), int(expr), etc.
-        """
+        """Parse type conversion function calls: str(expr), int(expr), etc."""
         # Get the conversion type
         conversion_type = self.current_token.value  # 'str', 'int', 'float', 'bool'
         self.eat(self.current_token.type)  # Eat the conversion function token
@@ -405,9 +469,7 @@ class Parser:
         return ConversionNode(conversion_type, expression)
     
     def input_call(self):
-        """
-        Parse input function calls: input() or input("prompt")
-        """
+        """Parse input function calls: input() or input("prompt")"""
         self.eat(Token.INPUT_FUNC)
         self.eat(Token.LPAREN)
         
@@ -420,6 +482,45 @@ class Parser:
         
         return InputNode(prompt_expression)
     
+    def list_function_call(self):
+        """
+        NEW: Parse list function calls: append(list, value), remove(list, index), len(list)
+        
+        Different functions have different argument requirements:
+        - append(list, value): 2 arguments
+        - remove(list, index): 2 arguments  
+        - len(list): 1 argument
+        """
+        function_name = self.current_token.value
+        self.eat(self.current_token.type)  # Eat the function token
+        
+        self.eat(Token.LPAREN)
+        
+        arguments = []
+        
+        # Handle empty argument list (shouldn't happen for list functions, but be safe)
+        if self.current_token.type == Token.RPAREN:
+            self.eat(Token.RPAREN)
+            return ListFunctionNode(function_name, arguments)
+        
+        # Parse first argument
+        arguments.append(self.expression())
+        
+        # Parse remaining arguments
+        while self.current_token.type == Token.COMMA:
+            self.eat(Token.COMMA)
+            arguments.append(self.expression())
+        
+        self.eat(Token.RPAREN)
+        
+        # Validate argument count for each function
+        if function_name == 'len' and len(arguments) != 1:
+            self.error(f"len() takes exactly 1 argument ({len(arguments)} given)")
+        elif function_name in ['append', 'remove'] and len(arguments) != 2:
+            self.error(f"{function_name}() takes exactly 2 arguments ({len(arguments)} given)")
+        
+        return ListFunctionNode(function_name, arguments)
+    
     def parse(self):
         """Main parsing entry point"""
-        return self.program()
+        return self.programme()
