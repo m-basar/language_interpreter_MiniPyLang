@@ -1,5 +1,5 @@
 """
-environment.py – Complete Stage 5 variable storage system
+environment.py - Complete Stage 5 variable storage system
 
 Provides variable storage and management for MiniPyLang:
 - Variable definition and lookup
@@ -11,7 +11,7 @@ Provides variable storage and management for MiniPyLang:
 
 
 class EnvironmentError(Exception):
-    """Exception for environment-related errors."""
+    """Exception for environment-related errors"""
     def __init__(self, message, variable_name=None):
         self.message = message
         self.variable_name = variable_name
@@ -27,7 +27,7 @@ class Environment:
     """
     
     def __init__(self):
-        """Initialise empty environment"""
+        """Initialize empty environment"""
         self._variables = {}
         
         # Optional: tracking for debugging and analysis
