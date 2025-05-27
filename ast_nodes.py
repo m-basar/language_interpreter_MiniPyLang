@@ -1,11 +1,13 @@
 """
-ast_nodes.py - Enhanced Stage 6 AST nodes with list support
+ast_nodes.py - Enhanced Stage 6 AST nodes with list and dictionary support
 
-Adds list data structure nodes to the existing Stage 5 AST:
+Adds list and dictionary data structure nodes to the existing Stage 5 AST:
 - ListNode for list literals [1, 2, 3]
-- IndexAccessNode for list[index] operations
-- IndexAssignmentNode for list[index] = value operations
+- DictNode for dictionary literals {"key": value}
+- IndexAccessNode for list[index] and dict["key"] operations
+- IndexAssignmentNode for list[index] = value and dict["key"] = value operations
 - ListFunctionNode for append(), remove(), len() functions
+- DictFunctionNode for keys(), values(), has_key(), del_key() functions
 """
 
 
@@ -65,7 +67,6 @@ class NoneNode(ASTNode):
         return 'None(none)'
 
 
-# NEW: List literal node
 class ListNode(ASTNode):
     """
     List literal: [1, 2, 3, "hello"]
@@ -86,6 +87,26 @@ class ListNode(ASTNode):
             return f'List({len(self.elements)} elements)'
 
 
+class DictNode(ASTNode):
+    """
+    Dictionary literal: {"name": "Alice", "age": 25, 1: "number key"}
+    
+    Represents a dictionary literal with key-value pairs.
+    Supports any type as keys and values (like Python).
+    """
+    
+    def __init__(self, pairs):
+        self.pairs = pairs  # List of (key_expr, value_expr) tuples
+    
+    def __str__(self):
+        if len(self.pairs) == 0:
+            return 'Dict(empty)'
+        elif len(self.pairs) == 1:
+            return f'Dict(1 pair)'
+        else:
+            return f'Dict({len(self.pairs)} pairs)'
+
+
 class VariableNode(ASTNode):
     """
     Variable reference: myVariable
@@ -101,21 +122,20 @@ class VariableNode(ASTNode):
         return f'Variable({self.name})'
 
 
-# NEW: Index access node
 class IndexAccessNode(ASTNode):
     """
-    Index access: list[index]
+    Index access: list[index] or dict["key"]
     
-    Represents accessing an element from a list by index.
-    The list can be any expression that evaluates to a list.
+    Represents accessing an element from a list by index or dictionary by key.
+    The container can be any expression that evaluates to a list or dictionary.
     """
     
-    def __init__(self, list_expression, index_expression):
-        self.list_expression = list_expression    # Expression that should evaluate to a list
-        self.index_expression = index_expression  # Expression that should evaluate to a number
+    def __init__(self, container_expression, key_expression):
+        self.container_expression = container_expression    # Expression that should evaluate to a list/dict
+        self.key_expression = key_expression  # Expression that should evaluate to an index/key
     
     def __str__(self):
-        return f'IndexAccess({self.list_expression}[{self.index_expression}])'
+        return f'IndexAccess({self.container_expression}[{self.key_expression}])'
 
 
 class BinaryOperationNode(ASTNode):
@@ -182,7 +202,6 @@ class InputNode(ASTNode):
             return 'Input()'
 
 
-# NEW: List function call node
 class ListFunctionNode(ASTNode):
     """
     List function call: append(list, value), remove(list, index), len(list)
@@ -201,6 +220,27 @@ class ListFunctionNode(ASTNode):
     def __str__(self):
         arg_count = len(self.arguments)
         return f'ListFunc({self.function_name}, {arg_count} args)'
+
+
+class DictFunctionNode(ASTNode):
+    """
+    Dictionary function call: keys(dict), values(dict), has_key(dict, key), del_key(dict, key)
+    
+    Represents built-in dictionary manipulation functions.
+    Different functions have different argument requirements:
+    - keys(dict): returns list of all keys
+    - values(dict): returns list of all values
+    - has_key(dict, key): returns true if key exists, false otherwise
+    - del_key(dict, key): removes key-value pair from dictionary
+    """
+    
+    def __init__(self, function_name, arguments):
+        self.function_name = function_name  # 'keys', 'values', 'has_key', 'del_key'
+        self.arguments = arguments          # List of expression nodes
+    
+    def __str__(self):
+        arg_count = len(self.arguments)
+        return f'DictFunc({self.function_name}, {arg_count} args)'
 
 
 # ============================================================================
@@ -222,22 +262,21 @@ class AssignmentNode(ASTNode):
         return f'Assignment({self.variable_name} = {self.expression})'
 
 
-# NEW: Index assignment node
 class IndexAssignmentNode(ASTNode):
     """
-    Index assignment: list[index] = value
+    Index assignment: list[index] = value or dict["key"] = value
     
-    Assigns a value to a specific index in a list.
-    Modifies the list in place.
+    Assigns a value to a specific index in a list or key in a dictionary.
+    Modifies the container in place.
     """
     
-    def __init__(self, list_expression, index_expression, value_expression):
-        self.list_expression = list_expression    # Expression that should evaluate to a list
-        self.index_expression = index_expression  # Expression that should evaluate to a number
+    def __init__(self, container_expression, key_expression, value_expression):
+        self.container_expression = container_expression    # Expression that should evaluate to a list/dict
+        self.key_expression = key_expression  # Expression that should evaluate to an index/key
         self.value_expression = value_expression  # Expression for the new value
     
     def __str__(self):
-        return f'IndexAssignment({self.list_expression}[{self.index_expression}] = {self.value_expression})'
+        return f'IndexAssignment({self.container_expression}[{self.key_expression}] = {self.value_expression})'
 
 
 class PrintNode(ASTNode):
@@ -268,7 +307,6 @@ class DeleteNode(ASTNode):
         return f'Delete({self.variable_name})'
 
 
-# Control flow nodes (unchanged from Stage 5)
 class BlockNode(ASTNode):
     """
     Block of statements: { statement1; statement2; ... }

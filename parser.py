@@ -1,11 +1,13 @@
 """
-parser.py - Enhanced Stage 6 parser with list support
+parser.py - Enhanced Stage 6 parser with list and dictionary support
 
-Converts tokens into AST supporting list constructs:
+Converts tokens into AST supporting list and dictionary constructs:
 - List literals: [1, 2, 3]
-- Index access: list[index]
-- Index assignment: list[index] = value
+- Dictionary literals: {"key": "value", "age": 25}
+- Index/key access: list[index], dict["key"]
+- Index/key assignment: list[index] = value, dict["key"] = value
 - List functions: append(list, value), remove(list, index), len(list)
+- Dictionary functions: keys(dict), values(dict), has_key(dict, key), del_key(dict, key)
 """
 
 from tokens import Token
@@ -15,8 +17,9 @@ from ast_nodes import (
     AssignmentNode, PrintNode, ProgrammeNode, DeleteNode, NoneNode,
     ConversionNode, InputNode,
     IfNode, WhileNode, BlockNode,
-    # NEW: List nodes
-    ListNode, IndexAccessNode, IndexAssignmentNode, ListFunctionNode
+    # List and Dictionary nodes
+    ListNode, DictNode, IndexAccessNode, IndexAssignmentNode, 
+    ListFunctionNode, DictFunctionNode
 )
 
 
@@ -38,9 +41,9 @@ class ParseError(Exception):
 
 class Parser:
     """
-    Enhanced Stage 6 parser with list support for MiniPyLang.
+    Enhanced Stage 6 parser with list and dictionary support for MiniPyLang.
     
-    Grammar (enhanced with lists):
+    Grammar (enhanced with lists and dictionaries):
     programme     : statement_list
     statement_list : statement (NEWLINE statement)*
     statement     : assignment | index_assignment | print_stmt | delete_stmt | if_stmt | while_stmt | expression
@@ -60,11 +63,14 @@ class Parser:
     factor        : unary ((MULTIPLY | DIVIDE) unary)*
     unary         : (PLUS | MINUS | NOT) unary | postfix
     postfix       : primary (LBRACKET expression RBRACKET)*
-    primary       : NUMBER | BOOLEAN | STRING | IDENTIFIER | NONE | list_literal | 
-                    conversion_call | list_function_call | input_call | LPAREN expression RPAREN
+    primary       : NUMBER | BOOLEAN | STRING | IDENTIFIER | NONE | list_literal | dict_literal |
+                    conversion_call | list_function_call | dict_function_call | input_call | LPAREN expression RPAREN
     list_literal  : LBRACKET (expression (COMMA expression)*)? RBRACKET
+    dict_literal  : LBRACE (dict_pair (COMMA dict_pair)*)? RBRACE
+    dict_pair     : expression COLON expression
     conversion_call : (STR_FUNC | INT_FUNC | FLOAT_FUNC | BOOL_FUNC) LPAREN expression RPAREN
     list_function_call : (APPEND_FUNC | REMOVE_FUNC | LEN_FUNC) LPAREN expression (COMMA expression)* RPAREN
+    dict_function_call : (KEYS_FUNC | VALUES_FUNC | HAS_KEY_FUNC | DEL_KEY_FUNC) LPAREN expression (COMMA expression)* RPAREN
     input_call    : INPUT_FUNC LPAREN (expression)? RPAREN
     """
     
@@ -139,7 +145,7 @@ class Parser:
         return ProgrammeNode(statements)
     
     def statement(self):
-        """Parse individual statements including list operations"""
+        """Parse individual statements including list and dictionary operations"""
         # Delete statement: del variable
         if self.current_token.type == Token.DEL:
             return self.delete_statement()
@@ -163,7 +169,7 @@ class Parser:
             if next_token.type == Token.ASSIGN:
                 return self.assignment()
             else:
-                # Could be index assignment: variable[index] = value
+                # Could be index assignment: variable[index] = value or dict["key"] = value
                 # Parse as expression first, then check for assignment
                 expr = self.expression()
                 
@@ -173,8 +179,8 @@ class Parser:
                     self.eat(Token.ASSIGN)
                     value_expr = self.expression()
                     return IndexAssignmentNode(
-                        expr.list_expression,
-                        expr.index_expression,
+                        expr.container_expression,
+                        expr.key_expression,
                         value_expr
                     )
                 else:
@@ -246,6 +252,13 @@ class Parser:
     def block(self):
         """Parse code block: { statement1; statement2; ... } or single statement"""
         if self.current_token.type == Token.LBRACE:
+            # Need to distinguish between dictionary literal and code block
+            # Look ahead to see if this looks like a dictionary or code block
+            if self._looks_like_dictionary():
+                # This is actually a dictionary literal, not a code block
+                # Let it be handled by primary() -> dict_literal()
+                self.error("Expected statement, not dictionary literal")
+            
             # Braced block
             self.eat(Token.LBRACE)
             self.skip_newlines()
@@ -272,6 +285,61 @@ class Parser:
             # Single statement (no braces)
             stmt = self.statement()
             return BlockNode([stmt] if stmt is not None else [])
+    
+    def _looks_like_dictionary(self):
+        """
+        Heuristic to distinguish between dictionary literals and code blocks.
+        Returns True if the content after { looks like a dictionary.
+        """
+        # Save current state
+        saved_pos = self.lexer.pos
+        saved_char = self.lexer.current_char
+        saved_line = self.lexer.line
+        saved_column = self.lexer.column
+        saved_token = self.current_token
+        
+        try:
+            # Look ahead after the opening brace
+            if self.current_token.type == Token.LBRACE:
+                self.current_token = self.lexer.get_next_token()
+                
+                # Empty braces could be either {} dict or {} block
+                if self.current_token.type == Token.RBRACE:
+                    return True  # Assume empty dictionary
+                
+                # Skip any newlines
+                while self.current_token.type == Token.NEWLINE:
+                    self.current_token = self.lexer.get_next_token()
+                
+                # Look for pattern: expression : expression
+                # If we see keywords like 'if', 'while', 'print', it's likely a block
+                if self.current_token.type in (Token.IF, Token.WHILE, Token.PRINT, Token.DEL):
+                    return False
+                
+                # Try to parse what looks like a key
+                try:
+                    # Simple heuristic: if we see : after some tokens, it's likely a dictionary
+                    token_count = 0
+                    while (self.current_token.type not in (Token.EOF, Token.RBRACE, Token.NEWLINE) and 
+                           token_count < 10):  # Limit lookahead
+                        if self.current_token.type == Token.COLON:
+                            return True
+                        if self.current_token.type in (Token.IF, Token.WHILE, Token.PRINT, Token.DEL):
+                            return False
+                        self.current_token = self.lexer.get_next_token()
+                        token_count += 1
+                except:
+                    pass
+            
+            return False
+            
+        finally:
+            # Restore state
+            self.lexer.pos = saved_pos
+            self.lexer.current_char = saved_char
+            self.lexer.line = saved_line
+            self.lexer.column = saved_column
+            self.current_token = saved_token
     
     def expression(self):
         """Parse complete expressions"""
@@ -355,9 +423,9 @@ class Parser:
     
     def postfix(self):
         """
-        NEW: Parse postfix operations including index access: expr[index][index2]...
+        Parse postfix operations including index access: expr[index][index2]...
         
-        This handles chained index operations like list[0][1] for nested lists.
+        This handles chained index operations like list[0][1] for nested structures.
         """
         node = self.primary()
         
@@ -372,7 +440,7 @@ class Parser:
     
     def primary(self):
         """
-        Parse primary expressions including NEW list literals and functions.
+        Parse primary expressions including list literals, dictionary literals, and functions.
         """
         token = self.current_token
         
@@ -401,9 +469,13 @@ class Parser:
             self.eat(Token.NONE)
             return NoneNode(token)
         
-        # NEW: List literal
+        # List literal
         elif token.type == Token.LBRACKET:
             return self.list_literal()
+        
+        # Dictionary literal (reuses LBRACE/RBRACE from control flow)
+        elif token.type == Token.LBRACE:
+            return self.dict_literal()
         
         # Type conversion functions
         elif token.type in (Token.STR_FUNC, Token.INT_FUNC, Token.FLOAT_FUNC, Token.BOOL_FUNC):
@@ -413,9 +485,13 @@ class Parser:
         elif token.type == Token.INPUT_FUNC:
             return self.input_call()
         
-        # NEW: List functions
+        # List functions
         elif token.type in (Token.APPEND_FUNC, Token.REMOVE_FUNC, Token.LEN_FUNC):
             return self.list_function_call()
+        
+        # NEW: Dictionary functions
+        elif token.type in (Token.KEYS_FUNC, Token.VALUES_FUNC, Token.HAS_KEY_FUNC, Token.DEL_KEY_FUNC):
+            return self.dict_function_call()
         
         elif token.type == Token.LPAREN:
             self.eat(Token.LPAREN)
@@ -424,11 +500,11 @@ class Parser:
             return node
         
         else:
-            self.error("Expected number, boolean, string, variable, list, function call, or parenthesised expression")
+            self.error("Expected number, boolean, string, variable, list, dictionary, function call, or parenthesised expression")
     
     def list_literal(self):
         """
-        NEW: Parse list literal: [element1, element2, element3]
+        Parse list literal: [element1, element2, element3]
         
         Supports empty lists [] and lists with mixed types.
         """
@@ -454,6 +530,42 @@ class Parser:
         
         self.eat(Token.RBRACKET)
         return ListNode(elements)
+    
+    def dict_literal(self):
+        """
+        NEW: Parse dictionary literal: {"key1": value1, "key2": value2}
+        
+        Supports empty dictionaries {} and dictionaries with mixed key/value types.
+        """
+        self.eat(Token.LBRACE)
+        
+        pairs = []
+        
+        # Handle empty dictionary
+        if self.current_token.type == Token.RBRACE:
+            self.eat(Token.RBRACE)
+            return DictNode(pairs)
+        
+        # Parse first key-value pair
+        key_expr = self.expression()
+        self.eat(Token.COLON)
+        value_expr = self.expression()
+        pairs.append((key_expr, value_expr))
+        
+        # Parse remaining pairs
+        while self.current_token.type == Token.COMMA:
+            self.eat(Token.COMMA)
+            # Allow trailing comma: {"a": 1, "b": 2,}
+            if self.current_token.type == Token.RBRACE:
+                break
+            
+            key_expr = self.expression()
+            self.eat(Token.COLON)
+            value_expr = self.expression()
+            pairs.append((key_expr, value_expr))
+        
+        self.eat(Token.RBRACE)
+        return DictNode(pairs)
     
     def conversion_call(self):
         """Parse type conversion function calls: str(expr), int(expr), etc."""
@@ -484,7 +596,7 @@ class Parser:
     
     def list_function_call(self):
         """
-        NEW: Parse list function calls: append(list, value), remove(list, index), len(list)
+        Parse list function calls: append(list, value), remove(list, index), len(list)
         
         Different functions have different argument requirements:
         - append(list, value): 2 arguments
@@ -520,6 +632,46 @@ class Parser:
             self.error(f"{function_name}() takes exactly 2 arguments ({len(arguments)} given)")
         
         return ListFunctionNode(function_name, arguments)
+    
+    def dict_function_call(self):
+        """
+        NEW: Parse dictionary function calls: keys(dict), values(dict), has_key(dict, key), del_key(dict, key)
+        
+        Different functions have different argument requirements:
+        - keys(dict): 1 argument
+        - values(dict): 1 argument
+        - has_key(dict, key): 2 arguments
+        - del_key(dict, key): 2 arguments
+        """
+        function_name = self.current_token.value
+        self.eat(self.current_token.type)  # Eat the function token
+        
+        self.eat(Token.LPAREN)
+        
+        arguments = []
+        
+        # Handle empty argument list (shouldn't happen for dict functions, but be safe)
+        if self.current_token.type == Token.RPAREN:
+            self.eat(Token.RPAREN)
+            return DictFunctionNode(function_name, arguments)
+        
+        # Parse first argument
+        arguments.append(self.expression())
+        
+        # Parse remaining arguments
+        while self.current_token.type == Token.COMMA:
+            self.eat(Token.COMMA)
+            arguments.append(self.expression())
+        
+        self.eat(Token.RPAREN)
+        
+        # Validate argument count for each function
+        if function_name in ['keys', 'values'] and len(arguments) != 1:
+            self.error(f"{function_name}() takes exactly 1 argument ({len(arguments)} given)")
+        elif function_name in ['has_key', 'del_key'] and len(arguments) != 2:
+            self.error(f"{function_name}() takes exactly 2 arguments ({len(arguments)} given)")
+        
+        return DictFunctionNode(function_name, arguments)
     
     def parse(self):
         """Main parsing entry point"""

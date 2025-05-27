@@ -1,0 +1,162 @@
+# example4.minipy - List Operations and Manipulation
+# Demonstrates Stage 6 list data structure features
+
+print "=== MiniPyLang Example 4: List Operations ==="
+
+# Creating lists
+print "List Creation:"
+numbers = [1, 2, 3, 4, 5]
+print "Numbers: " + str(numbers)
+
+mixed = [1, "hello", true, 3.14, false]
+print "Mixed types: " + str(mixed)
+
+empty = []
+print "Empty list: " + str(empty)
+
+# List access and modification
+print "List Access:"
+print "First number: " + str(numbers[0])
+print "Last number: " + str(numbers[4])
+print "Second mixed item: " + str(mixed[1])
+
+# Negative indexing
+print "Negative Indexing:"
+print "Last item (negative): " + str(numbers[-1])
+print "Second to last: " + str(numbers[-2])
+
+# List assignment
+print "List Modification:"
+numbers[2] = 10
+print "After changing index 2: " + str(numbers)
+
+mixed[0] = "changed"
+print "After changing mixed[0]: " + str(mixed)
+
+# List functions
+print "List Functions:"
+originalLength = len(numbers)
+print "Original length: " + str(originalLength)
+
+# Append elements
+append(numbers, 6)
+print "After append(6): " + str(numbers)
+
+append(numbers, 7)
+append(numbers, 8)
+print "After more appends: " + str(numbers)
+
+# Remove elements
+removed = remove(numbers, 0)
+print "Removed element: " + str(removed)
+print "List after removal: " + str(numbers)
+
+# Remove from middle
+middleRemoved = remove(numbers, 2)
+print "Removed from middle: " + str(middleRemoved)
+print "List after middle removal: " + str(numbers)
+
+# Working with strings in lists
+print "String Lists:"
+fruits = ["apple", "banana", "cherry", "date"]
+print "Fruits: " + str(fruits)
+
+append(fruits, "elderberry")
+print "Added elderberry: " + str(fruits)
+
+firstFruit = remove(fruits, 0)
+print "Removed first fruit: " + firstFruit
+print "Remaining fruits: " + str(fruits)
+
+# List operations in loops
+print "List Building with Loops:"
+squares = []
+i = 1
+while (i <= 5) {
+    square = i * i
+    append(squares, square)
+    i = i + 1
+}
+print "Squares: " + str(squares)
+
+# List processing
+print "List Processing:"
+total = 0
+index = 0
+while (index < len(squares)) {
+    total = total + squares[index]
+    index = index + 1
+}
+print "Sum of squares: " + str(total)
+
+# Finding maximum
+print "Finding Maximum:"
+values = [23, 45, 12, 67, 34, 89, 15]
+print "Values: " + str(values)
+
+maxVal = values[0]
+i = 1
+while (i < len(values)) {
+    if (values[i] > maxVal) {
+        maxVal = values[i]
+    }
+    i = i + 1
+}
+print "Maximum value: " + str(maxVal)
+
+# List concatenation
+print "List Concatenation:"
+list1 = [1, 2, 3]
+list2 = [4, 5, 6]
+combined = list1 + list2
+print "List1: " + str(list1)
+print "List2: " + str(list2)
+print "Combined: " + str(combined)
+
+# Nested list-like behaviour with mixed types
+print "Complex List Operations:"
+studentGrades = []
+append(studentGrades, "Alice")
+append(studentGrades, 85)
+append(studentGrades, "Bob")
+append(studentGrades, 92)
+append(studentGrades, "Charlie")
+append(studentGrades, 78)
+
+print "Student data: " + str(studentGrades)
+
+# Process student data
+print "Student Results:"
+i = 0
+while (i < len(studentGrades)) {
+    name = studentGrades[i]
+    grade = studentGrades[i + 1]
+    
+    status = ""
+    if (grade >= 80) {
+        status = "Excellent"
+    } else {
+        if (grade >= 70) {
+            status = "Good"
+        } else {
+            status = "Needs Improvement"
+        }
+    }
+    
+    print name + ": " + str(grade) + " (" + status + ")"
+    i = i + 2
+}
+
+# List equality
+print "List Equality:"
+nums1 = [1, 2, 3]
+nums2 = [1, 2, 3]
+nums3 = [1, 2, 4]
+
+print "nums1: " + str(nums1)
+print "nums2: " + str(nums2)
+print "nums3: " + str(nums3)
+print "nums1 == nums2: " + str(nums1 == nums2)
+print "nums1 == nums3: " + str(nums1 == nums3)
+
+print "=== End of Example 4 ==="

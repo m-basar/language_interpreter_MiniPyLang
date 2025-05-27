@@ -1,12 +1,14 @@
 """
-interpreter.py - Enhanced Stage 6 interpreter with list support
+interpreter.py - Enhanced Stage 6 interpreter with list and dictionary support
 
-Executes programmes with support for list data structures:
+Executes programmes with support for both list and dictionary data structures:
 - All existing Stage 5 features
 - List literals: [1, 2, 3]
-- Index access: list[0]
-- Index assignment: list[0] = value
+- Dictionary literals: {"key": "value", "age": 25}
+- Index/key access: list[0], dict["key"]
+- Index/key assignment: list[0] = value, dict["key"] = value
 - List functions: append(list, value), remove(list, index), len(list)
+- Dictionary functions: keys(dict), values(dict), has_key(dict, key), del_key(dict, key)
 """
 
 import math
@@ -17,8 +19,9 @@ from ast_nodes import (
     AssignmentNode, PrintNode, ProgrammeNode, DeleteNode, NoneNode,
     ConversionNode, InputNode,
     IfNode, WhileNode, BlockNode,
-    # NEW: List nodes
-    ListNode, IndexAccessNode, IndexAssignmentNode, ListFunctionNode
+    # List and Dictionary nodes
+    ListNode, DictNode, IndexAccessNode, IndexAssignmentNode, 
+    ListFunctionNode, DictFunctionNode
 )
 from environment import Environment
 
@@ -48,10 +51,10 @@ class ContinueException(ControlFlowException):
 
 class MiniPyValue:
     """
-    Enhanced value wrapper for type tracking and operations including lists.
+    Enhanced value wrapper for type tracking and operations including lists and dictionaries.
     
     Provides explicit type information and operations for all
-    MiniPyLang values including the new list data type.
+    MiniPyLang values including the new list and dictionary data types.
     """
     
     # Value type constants
@@ -59,7 +62,8 @@ class MiniPyValue:
     BOOLEAN = 'BOOLEAN'
     STRING = 'STRING'
     NONE = 'NONE'
-    LIST = 'LIST'  # NEW: List type
+    LIST = 'LIST'
+    DICT = 'DICT'  # Dictionary type
     
     def __init__(self, value, value_type=None):
         """Create typed value"""
@@ -75,8 +79,9 @@ class MiniPyValue:
             elif isinstance(value, str):
                 self.type = self.STRING
             elif isinstance(value, list):
-                # NEW: List type detection
                 self.type = self.LIST
+            elif isinstance(value, dict):
+                self.type = self.DICT
             elif value is None:
                 self.type = self.NONE
             else:
@@ -97,8 +102,11 @@ class MiniPyValue:
         return self.type == self.NONE
     
     def is_list(self):
-        """NEW: Check if value is a list"""
         return self.type == self.LIST
+    
+    def is_dict(self):
+        """Check if value is a dictionary"""
+        return self.type == self.DICT
     
     def to_python_value(self):
         """Extract underlying Python value"""
@@ -113,7 +121,9 @@ class MiniPyValue:
         elif self.is_string():
             return len(self.value) > 0
         elif self.is_list():
-            # NEW: Non-empty lists are truthy
+            return len(self.value) > 0
+        elif self.is_dict():
+            # Non-empty dictionaries are truthy
             return len(self.value) > 0
         elif self.is_none():
             return False
@@ -136,7 +146,7 @@ class MiniPyValue:
                 else:
                     return str(self.value)
         elif self.is_list():
-            # NEW: List string representation
+            # List string representation
             if len(self.value) == 0:
                 return "[]"
             else:
@@ -152,16 +162,47 @@ class MiniPyValue:
                     else:
                         elements.append(str(item))
                 return "[" + ", ".join(elements) + "]"
+        elif self.is_dict():
+            # Dictionary string representation
+            if len(self.value) == 0:
+                return "{}"
+            else:
+                # Convert each key-value pair to string representation
+                pairs = []
+                for key, value in self.value.items():
+                    # Format key
+                    if isinstance(key, str):
+                        key_str = f'"{key}"'
+                    elif isinstance(key, bool):
+                        key_str = "true" if key else "false"
+                    elif key is None:
+                        key_str = "none"
+                    else:
+                        key_str = str(key)
+                    
+                    # Format value
+                    if isinstance(value, str):
+                        value_str = f'"{value}"'
+                    elif isinstance(value, bool):
+                        value_str = "true" if value else "false"
+                    elif value is None:
+                        value_str = "none"
+                    else:
+                        value_str = str(value)
+                    
+                    pairs.append(f"{key_str}: {value_str}")
+                
+                return "{" + ", ".join(pairs) + "}"
         else:
             return str(self.value)
 
 
 class Interpreter:
     """
-    Enhanced Stage 6 interpreter with list support for MiniPyLang.
+    Enhanced Stage 6 interpreter with list and dictionary support for MiniPyLang.
     
     Executes programmes with proper variable management, type checking,
-    error handling, type conversion, control flow, and list operations.
+    error handling, type conversion, control flow, and collection operations.
     """
     
     # Floating point comparison tolerance
@@ -177,6 +218,22 @@ class Interpreter:
         # Track loop nesting for safety
         self.loop_iteration_count = 0
         self.in_loop = False
+    
+    # Helper methods for dictionary operations
+    def _is_hashable(self, value):
+        """Check if a value can be used as a dictionary key"""
+        return isinstance(value, (str, int, float, bool, type(None)))
+    
+    def _format_key(self, key):
+        """Format a key for error messages"""
+        if isinstance(key, str):
+            return f'"{key}"'
+        elif isinstance(key, bool):
+            return "true" if key else "false"
+        elif key is None:
+            return "none"
+        else:
+            return str(key)
     
     def visit_ProgrammeNode(self, node):
         """Execute programme as sequence of statements"""
@@ -205,13 +262,9 @@ class Interpreter:
         
         return last_result
     
-    # NEW: List-related visitor methods
+    # List-related visitor methods
     def visit_ListNode(self, node):
-        """
-        Create list literal: [element1, element2, element3]
-        
-        Evaluates all elements and creates a Python list.
-        """
+        """Create list literal: [element1, element2, element3]"""
         try:
             elements = []
             for element_node in node.elements:
@@ -223,132 +276,297 @@ class Interpreter:
         except Exception as e:
             raise InterpreterError(f"Error creating list: {str(e)}", node)
     
-    def visit_IndexAccessNode(self, node):
+    # Dictionary-related visitor methods
+    def visit_DictNode(self, node):
         """
-        Access list element: list[index]
+        Create dictionary literal: {"key1": value1, "key2": value2}
         
-        Supports both positive and negative indexing like Python.
+        Evaluates all keys and values and creates a Python dictionary.
+        Keys must be hashable (strings, numbers, booleans, none).
         """
         try:
-            # Evaluate the list expression
-            list_value = self.visit(node.list_expression)
+            result_dict = {}
             
-            # Ensure it's actually a list
-            if not isinstance(list_value, list):
-                raise InterpreterError(
-                    f"Cannot index {type(list_value).__name__}, only lists support indexing",
-                    node
-                )
+            for key_node, value_node in node.pairs:
+                # Evaluate key and value
+                key_value = self.visit(key_node)
+                value_value = self.visit(value_node)
+                
+                # Ensure key is hashable
+                if not self._is_hashable(key_value):
+                    raise InterpreterError(
+                        f"Dictionary key must be hashable (string, number, boolean, or none), got {type(key_value).__name__}",
+                        node
+                    )
+                
+                # Store in dictionary
+                result_dict[key_value] = value_value
             
-            # Evaluate the index expression
-            index_value = self.visit(node.index_expression)
-            
-            # Ensure index is a number
-            if not isinstance(index_value, (int, float)):
-                raise InterpreterError(
-                    f"List indices must be numbers, got {type(index_value).__name__}",
-                    node
-                )
-            
-            # Convert to integer index
-            index = int(index_value)
-            
-            # Check bounds
-            if index < 0:
-                # Support negative indexing like Python
-                index = len(list_value) + index
-            
-            if index < 0 or index >= len(list_value):
-                raise InterpreterError(
-                    f"List index out of range: index {int(index_value)} for list of length {len(list_value)}",
-                    node
-                )
-            
-            return list_value[index]
+            return result_dict
             
         except InterpreterError:
             raise
         except Exception as e:
-            raise InterpreterError(f"Error accessing list index: {str(e)}", node)
+            raise InterpreterError(f"Error creating dictionary: {str(e)}", node)
+    
+    def visit_IndexAccessNode(self, node):
+        """
+        Access container element: list[index] or dict["key"]
+        
+        Supports both list indexing and dictionary key access.
+        """
+        try:
+            # Evaluate the container expression
+            container_value = self.visit(node.container_expression)
+            
+            # Evaluate the key/index expression
+            key_value = self.visit(node.key_expression)
+            
+            # Handle list indexing
+            if isinstance(container_value, list):
+                # Ensure key is a number for lists
+                if not isinstance(key_value, (int, float)):
+                    raise InterpreterError(
+                        f"List indices must be numbers, got {type(key_value).__name__}",
+                        node
+                    )
+                
+                # Convert to integer index
+                index = int(key_value)
+                
+                # Check bounds with negative indexing support
+                if index < 0:
+                    index = len(container_value) + index
+                
+                if index < 0 or index >= len(container_value):
+                    raise InterpreterError(
+                        f"List index out of range: index {int(key_value)} for list of length {len(container_value)}",
+                        node
+                    )
+                
+                return container_value[index]
+            
+            # Handle dictionary key access
+            elif isinstance(container_value, dict):
+                # Ensure key is hashable
+                if not self._is_hashable(key_value):
+                    raise InterpreterError(
+                        f"Dictionary key must be hashable, got {type(key_value).__name__}",
+                        node
+                    )
+                
+                # Check if key exists
+                if key_value not in container_value:
+                    raise InterpreterError(
+                        f"Dictionary key not found: {self._format_key(key_value)}",
+                        node
+                    )
+                
+                return container_value[key_value]
+            
+            else:
+                raise InterpreterError(
+                    f"Cannot index {type(container_value).__name__}, only lists and dictionaries support indexing",
+                    node
+                )
+            
+        except InterpreterError:
+            raise
+        except Exception as e:
+            raise InterpreterError(f"Error accessing container element: {str(e)}", node)
     
     def visit_IndexAssignmentNode(self, node):
         """
-        Assign to list element: list[index] = value
+        Assign to container element: list[index] = value or dict["key"] = value
         
-        Modifies the list in place.
+        Modifies the container in place.
         """
         try:
-            # Evaluate the list expression
-            list_value = self.visit(node.list_expression)
+            # Evaluate the container expression
+            container_value = self.visit(node.container_expression)
             
-            # Ensure it's actually a list
-            if not isinstance(list_value, list):
-                raise InterpreterError(
-                    f"Cannot assign to index of {type(list_value).__name__}, only lists support index assignment",
-                    node
-                )
-            
-            # Evaluate the index expression
-            index_value = self.visit(node.index_expression)
-            
-            # Ensure index is a number
-            if not isinstance(index_value, (int, float)):
-                raise InterpreterError(
-                    f"List indices must be numbers, got {type(index_value).__name__}",
-                    node
-                )
-            
-            # Convert to integer index
-            index = int(index_value)
-            
-            # Check bounds
-            if index < 0:
-                # Support negative indexing like Python
-                index = len(list_value) + index
-            
-            if index < 0 or index >= len(list_value):
-                raise InterpreterError(
-                    f"List index out of range: index {int(index_value)} for list of length {len(list_value)}",
-                    node
-                )
+            # Evaluate the key/index expression
+            key_value = self.visit(node.key_expression)
             
             # Evaluate the new value
             new_value = self.visit(node.value_expression)
             
-            # Assign to the list
-            list_value[index] = new_value
+            # Handle list index assignment
+            if isinstance(container_value, list):
+                # Ensure key is a number for lists
+                if not isinstance(key_value, (int, float)):
+                    raise InterpreterError(
+                        f"List indices must be numbers, got {type(key_value).__name__}",
+                        node
+                    )
+                
+                # Convert to integer index
+                index = int(key_value)
+                
+                # Check bounds with negative indexing support
+                if index < 0:
+                    index = len(container_value) + index
+                
+                if index < 0 or index >= len(container_value):
+                    raise InterpreterError(
+                        f"List index out of range: index {int(key_value)} for list of length {len(container_value)}",
+                        node
+                    )
+                
+                # Assign to the list
+                container_value[index] = new_value
+            
+            # Handle dictionary key assignment
+            elif isinstance(container_value, dict):
+                # Ensure key is hashable
+                if not self._is_hashable(key_value):
+                    raise InterpreterError(
+                        f"Dictionary key must be hashable, got {type(key_value).__name__}",
+                        node
+                    )
+                
+                # Assign to the dictionary (creates new key if it doesn't exist)
+                container_value[key_value] = new_value
+            
+            else:
+                raise InterpreterError(
+                    f"Cannot assign to index of {type(container_value).__name__}, only lists and dictionaries support index assignment",
+                    node
+                )
             
             return None
             
         except InterpreterError:
             raise
         except Exception as e:
-            raise InterpreterError(f"Error in list index assignment: {str(e)}", node)
+            raise InterpreterError(f"Error in container index assignment: {str(e)}", node)
     
-    def visit_ListFunctionNode(self, node):
+    def visit_DictFunctionNode(self, node):
         """
-        Handle list function calls: append(list, value), remove(list, index), len(list)
+        Handle dictionary function calls: keys(dict), values(dict), has_key(dict, key), del_key(dict, key)
         
-        Implements the three core list operations required by the assignment.
+        Implements the four core dictionary operations required by the assignment.
         """
         try:
             function_name = node.function_name
             arguments = node.arguments
             
-            if function_name == 'len':
-                # len(list) - returns length of list
+            if function_name == 'keys':
+                # keys(dict) - returns list of all keys
                 if len(arguments) != 1:
-                    raise InterpreterError(f"len() takes exactly 1 argument ({len(arguments)} given)", node)
+                    raise InterpreterError(f"keys() takes exactly 1 argument ({len(arguments)} given)", node)
                 
-                list_value = self.visit(arguments[0])
+                dict_value = self.visit(arguments[0])
                 
-                if not isinstance(list_value, list):
+                if not isinstance(dict_value, dict):
                     raise InterpreterError(
-                        f"len() argument must be a list, got {type(list_value).__name__}",
+                        f"keys() argument must be a dictionary, got {type(dict_value).__name__}",
                         node
                     )
                 
-                return len(list_value)
+                # Return list of keys
+                return list(dict_value.keys())
+            
+            elif function_name == 'values':
+                # values(dict) - returns list of all values
+                if len(arguments) != 1:
+                    raise InterpreterError(f"values() takes exactly 1 argument ({len(arguments)} given)", node)
+                
+                dict_value = self.visit(arguments[0])
+                
+                if not isinstance(dict_value, dict):
+                    raise InterpreterError(
+                        f"values() argument must be a dictionary, got {type(dict_value).__name__}",
+                        node
+                    )
+                
+                # Return list of values
+                return list(dict_value.values())
+            
+            elif function_name == 'has_key':
+                # has_key(dict, key) - returns true if key exists, false otherwise
+                if len(arguments) != 2:
+                    raise InterpreterError(f"has_key() takes exactly 2 arguments ({len(arguments)} given)", node)
+                
+                dict_value = self.visit(arguments[0])
+                key_value = self.visit(arguments[1])
+                
+                if not isinstance(dict_value, dict):
+                    raise InterpreterError(
+                        f"has_key() first argument must be a dictionary, got {type(dict_value).__name__}",
+                        node
+                    )
+                
+                if not self._is_hashable(key_value):
+                    raise InterpreterError(
+                        f"has_key() second argument must be hashable, got {type(key_value).__name__}",
+                        node
+                    )
+                
+                # Return boolean indicating key existence
+                return key_value in dict_value
+            
+            elif function_name == 'del_key':
+                # del_key(dict, key) - removes key-value pair from dictionary
+                if len(arguments) != 2:
+                    raise InterpreterError(f"del_key() takes exactly 2 arguments ({len(arguments)} given)", node)
+                
+                dict_value = self.visit(arguments[0])
+                key_value = self.visit(arguments[1])
+                
+                if not isinstance(dict_value, dict):
+                    raise InterpreterError(
+                        f"del_key() first argument must be a dictionary, got {type(dict_value).__name__}",
+                        node
+                    )
+                
+                if not self._is_hashable(key_value):
+                    raise InterpreterError(
+                        f"del_key() second argument must be hashable, got {type(key_value).__name__}",
+                        node
+                    )
+                
+                # Check if key exists
+                if key_value not in dict_value:
+                    raise InterpreterError(
+                        f"del_key() key not found: {self._format_key(key_value)}",
+                        node
+                    )
+                
+                # Remove and return the deleted value
+                deleted_value = dict_value[key_value]
+                del dict_value[key_value]
+                return deleted_value
+            
+            else:
+                raise InterpreterError(f"Unknown dictionary function: {function_name}", node)
+                
+        except InterpreterError:
+            raise
+        except Exception as e:
+            raise InterpreterError(f"Error in dictionary function {node.function_name}(): {str(e)}", node)
+    
+    # List function visitor
+    def visit_ListFunctionNode(self, node):
+        """Handle list function calls: append(list, value), remove(list, index), len(list)"""
+        try:
+            function_name = node.function_name
+            arguments = node.arguments
+            
+            if function_name == 'len':
+                # len(container) - returns length of list or dictionary
+                if len(arguments) != 1:
+                    raise InterpreterError(f"len() takes exactly 1 argument ({len(arguments)} given)", node)
+                
+                container_value = self.visit(arguments[0])
+                
+                if isinstance(container_value, (list, dict)):
+                    return len(container_value)
+                else:
+                    raise InterpreterError(
+                        f"len() argument must be a list or dictionary, got {type(container_value).__name__}",
+                        node
+                    )
             
             elif function_name == 'append':
                 # append(list, value) - adds value to end of list
@@ -364,10 +582,8 @@ class Interpreter:
                         node
                     )
                 
-                # Modify list in place (like Python's list.append())
+                # Modify list in place
                 list_value.append(new_value)
-                
-                # Return the modified list for chaining (optional)
                 return list_value
             
             elif function_name == 'remove':
@@ -393,9 +609,8 @@ class Interpreter:
                 # Convert to integer index
                 index = int(index_value)
                 
-                # Check bounds
+                # Check bounds with negative indexing support
                 if index < 0:
-                    # Support negative indexing
                     index = len(list_value) + index
                 
                 if index < 0 or index >= len(list_value):
@@ -529,7 +744,7 @@ class Interpreter:
         except Exception as e:
             raise InterpreterError(f"Error in input() function: {str(e)}", node)
     
-    # Enhanced type conversion with better error handling
+    # Enhanced type conversion with dictionary support
     def visit_ConversionNode(self, node):
         """Handle type conversion function calls with comprehensive error handling."""
         try:
@@ -551,7 +766,11 @@ class Interpreter:
                 elif isinstance(value, str):
                     return value  # Already a string
                 elif isinstance(value, list):
-                    # NEW: Convert list to string representation
+                    # Convert list to string representation
+                    minipy_val = MiniPyValue(value)
+                    return str(minipy_val)
+                elif isinstance(value, dict):
+                    # Convert dictionary to string representation
                     minipy_val = MiniPyValue(value)
                     return str(minipy_val)
                 else:
@@ -585,7 +804,10 @@ class Interpreter:
                 elif value is None:
                     return 0
                 elif isinstance(value, list):
-                    # NEW: Convert list length to integer
+                    # Convert list length to integer
+                    return len(value)
+                elif isinstance(value, dict):
+                    # Convert dictionary length to integer
                     return len(value)
                 else:
                     raise InterpreterError(f"Cannot convert {type(value).__name__} to integer", node)
@@ -614,7 +836,10 @@ class Interpreter:
                 elif value is None:
                     return 0.0
                 elif isinstance(value, list):
-                    # NEW: Convert list length to float
+                    # Convert list length to float
+                    return float(len(value))
+                elif isinstance(value, dict):
+                    # Convert dictionary length to float
                     return float(len(value))
                 else:
                     raise InterpreterError(f"Cannot convert {type(value).__name__} to float", node)
@@ -629,7 +854,10 @@ class Interpreter:
                     # String truthiness: empty string is false, non-empty is true
                     return len(value) > 0
                 elif isinstance(value, list):
-                    # NEW: List truthiness: empty list is false, non-empty is true
+                    # List truthiness: empty list is false, non-empty is true
+                    return len(value) > 0
+                elif isinstance(value, dict):
+                    # Dictionary truthiness: empty dict is false, non-empty is true
                     return len(value) > 0
                 elif value is None:
                     return False
@@ -817,7 +1045,7 @@ class Interpreter:
         except Exception as e:
             raise InterpreterError(f"Error in unary operation: {str(e)}", node)
     
-    # Helper methods (enhanced with list support)
+    # Helper methods (enhanced with dictionary support)
     def _perform_arithmetic(self, left, right, operation):
         """Perform arithmetic while preserving types"""
         if isinstance(left, int) and isinstance(right, int):
@@ -835,7 +1063,7 @@ class Interpreter:
         elif isinstance(left_value, (int, float)) and isinstance(right_value, (int, float)):
             return self._perform_arithmetic(left_value, right_value, lambda a, b: a + b)
         
-        # NEW: List concatenation
+        # List concatenation
         elif isinstance(left_value, list) and isinstance(right_value, list):
             return left_value + right_value
         
@@ -851,7 +1079,7 @@ class Interpreter:
             )
     
     def _handle_equality(self, left_value, right_value):
-        """Handle equality with floating point awareness and list support"""
+        """Handle equality with floating point awareness and collection support"""
         # Different types are never equal (except numbers)
         if type(left_value) != type(right_value):
             # Allow int/float comparison
@@ -867,13 +1095,28 @@ class Interpreter:
         if isinstance(left_value, (int, float)) and isinstance(right_value, (int, float)):
             return abs(float(left_value) - float(right_value)) < self.EPSILON
         
-        # NEW: List equality (element-wise comparison)
+        # List equality (element-wise comparison)
         if isinstance(left_value, list) and isinstance(right_value, list):
             if len(left_value) != len(right_value):
                 return False
             
             for i in range(len(left_value)):
                 if not self._handle_equality(left_value[i], right_value[i]):
+                    return False
+            return True
+        
+        # Dictionary equality (key-value comparison)
+        if isinstance(left_value, dict) and isinstance(right_value, dict):
+            if len(left_value) != len(right_value):
+                return False
+            
+            # Check all keys exist in both dictionaries
+            if set(left_value.keys()) != set(right_value.keys()):
+                return False
+            
+            # Check all values are equal
+            for key in left_value:
+                if not self._handle_equality(left_value[key], right_value[key]):
                     return False
             return True
         

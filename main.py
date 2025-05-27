@@ -1,5 +1,5 @@
 """
-main.py - Complete Stage 6 MiniPyLang interface with List support
+main.py - Complete Stage 6 MiniPyLang interface with method syntax
 
 Provides both interactive and file-based execution with optional
 tree features for learning about list implementation.
@@ -32,6 +32,11 @@ def print_tree(node, level=0, prefix="Root: "):
         # List node - show all elements
         for i, elem in enumerate(node.elements):
             print_tree(elem, level + 1, f"Elem{i}: ")
+    elif hasattr(node, 'object_expression') and hasattr(node, 'method_name'):
+        # Method call - show object and arguments
+        print_tree(node.object_expression, level + 1, "Object: ")
+        for i, arg in enumerate(node.arguments):
+            print_tree(arg, level + 1, f"Arg{i}: ")
     elif hasattr(node, 'list_expression') and hasattr(node, 'index_expression'):
         # Index access or assignment - show list and index
         print_tree(node.list_expression, level + 1, "List: ")
@@ -96,8 +101,10 @@ def execute_programme_with_tree(programme_text, show_tree=False, interpreter=Non
         print(f"\nRunning Control Flow:")
     elif '[' in programme_text and ']' in programme_text:
         print(f"\nProcessing Lists:")
-    elif any(func in programme_text.lower() for func in ['append', 'remove', 'len']):
-        print(f"\nExecuting List Operations:")
+    elif '.append(' in programme_text or '.remove(' in programme_text:
+        print(f"\nExecuting List Methods:")
+    elif 'len(' in programme_text:
+        print(f"\nExecuting List Functions:")
     elif any(func in programme_text.lower() for func in ['str(', 'int(', 'float(', 'bool(']):
         print(f"\nPerforming Type Conversions:")
     elif 'input(' in programme_text.lower():
@@ -167,7 +174,7 @@ def interactive_mode():
     Interactive REPL with persistent variables and tree features.
     """
     print("=== MiniPyLang Interactive Interpreter ===")
-    print("Stage 6: Programming with Lists")
+    print("Stage 6: Programming with Lists (Method Syntax)")
     print()
     print("Type statements to build programmes with variables, control flow, and lists.")
     print("Commands:")
@@ -180,11 +187,12 @@ def interactive_mode():
     print("Tree display is OFF by default. Use 'tree on' to see")
     print("tokenisation and parse tree details.")
     print()
-    print("NEW in Stage 6:")
+    print("NEW in Stage 6 with Method Syntax:")
     print("  • List literals: [1, 2, 3, \"hello\"]")
     print("  • Index access: list[0], list[-1]")
     print("  • Index assignment: list[0] = \"new value\"")
-    print("  • List functions: append(list, value), remove(list, index), len(list)")
+    print("  • List methods: list.append(value), list.remove(index)")
+    print("  • List function: len(list)")
     print("  • List concatenation: [1, 2] + [3, 4]")
     print("  • Mixed-type lists supported")
     print()
@@ -247,21 +255,23 @@ def interactive_mode():
                 print("  'clear' - clear all variables from memory")
                 print("  'quit' or 'exit' - exit the interpreter")
                 print()
-                print("Example statements:")
+                print("Example statements with method syntax:")
                 print("  numbers = [1, 2, 3, 4, 5]")
                 print("  print numbers[0]")
                 print("  numbers[1] = 10")
-                print("  append(numbers, 6)")
+                print("  numbers.append(6)")
+                print("  removed = numbers.remove(2)")
                 print("  print \"Length: \" + str(len(numbers))")
                 print("  mixed = [1, \"hello\", true, 3.14]")
                 print("  fruits = [\"apple\", \"banana\", \"cherry\"]")
+                print("  fruits.append(\"orange\")")
                 print()
                 print("List features:")
                 print("  • Create: [element1, element2, element3]")
                 print("  • Access: list[index] (supports negative indices)")
                 print("  • Modify: list[index] = new_value")
-                print("  • Append: append(list, value)")
-                print("  • Remove: removed = remove(list, index)")
+                print("  • Append: list.append(value)")
+                print("  • Remove: removed = list.remove(index)")
                 print("  • Length: len(list)")
                 print("  • Combine: list1 + list2")
                 print()
@@ -350,19 +360,18 @@ def main():
             print("  • List literals: [1, 2, 3, \"hello\", true]")
             print("  • Index access: list[0], list[-1]")
             print("  • Index assignment: list[0] = new_value")
-            print("  • Back-insertion: append(list, value)")
-            print("  • Random removal: remove(list, index)")
-            print("  • Length function: len(list)")
+            print("  • List methods: list.append(value), list.remove(index)")
+            print("  • List function: len(list)")
             print("  • List concatenation: [1, 2] + [3, 4]")
             print("  • Mixed-type lists with proper equality")
             print("  • Integration with existing type system")
             print()
-            print("List syntax:")
+            print("List syntax with method calls:")
             print("  • Creation: my_list = [1, 2, 3]")
             print("  • Access: value = my_list[0]")
             print("  • Modify: my_list[1] = \"new\"")
-            print("  • Append: append(my_list, \"item\")")
-            print("  • Remove: removed = remove(my_list, 2)")
+            print("  • Append: my_list.append(\"item\")")
+            print("  • Remove: removed = my_list.remove(2)")
             print("  • Length: size = len(my_list)")
             print("  • Negative indexing: last = my_list[-1]")
             print()

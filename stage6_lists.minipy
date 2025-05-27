@@ -1,0 +1,284 @@
+# ============================================================================
+# stage6_lists.mpy - Stage 6: List Data Structure Examples
+# ============================================================================
+
+print "=== Stage 6: List Data Structure Demo ==="
+
+# Basic list creation and display
+print "1. Creating lists:"
+empty_list = []
+print empty_list
+
+numbers = [1, 2, 3, 4, 5]
+print numbers
+
+mixed_list = [1, "hello", true, 3.14]
+print mixed_list
+
+# List indexing (random access)
+print "2. List indexing:"
+print numbers[0]  # First element
+print numbers[4]  # Last element
+print mixed_list[1]  # String element
+
+# Index assignment
+print "3. Index assignment:"
+numbers[0] = 10
+print numbers
+
+mixed_list[1] = "world"
+print mixed_list
+
+# List functions
+print "4. List functions:"
+
+# Length function
+print "Length of numbers: " + str(len(numbers))
+print "Length of empty list: " + str(len(empty_list))
+
+# Append function (back-insertion)
+original_numbers = [1, 2, 3]
+print "Before append: " + str(original_numbers)
+append(original_numbers, 4)
+print "After append: " + str(original_numbers)
+
+append(original_numbers, 5)
+append(original_numbers, 6)
+print "After more appends: " + str(original_numbers)
+
+# Remove function (random removal)
+print "Before remove: " + str(original_numbers)
+removed = remove(original_numbers, 1)  # Remove element at index 1
+print "Removed element: " + str(removed)
+print "After remove: " + str(original_numbers)
+
+# List concatenation
+print "5. List concatenation:"
+list1 = [1, 2, 3]
+list2 = [4, 5, 6]
+combined = list1 + list2
+print "List1: " + str(list1)
+print "List2: " + str(list2)
+print "Combined: " + str(combined)
+
+# Lists in control flow
+print "6. Lists with control flow:"
+fruits = ["apple", "banana", "cherry"]
+i = 0
+while (i < len(fruits)) {
+    print "Fruit " + str(i) + ": " + fruits[i]
+    i = i + 1
+}
+
+# Nested lists (bonus feature)
+print "7. Nested lists:"
+matrix = [[1, 2], [3, 4], [5, 6]]
+print "Matrix: " + str(matrix)
+print "Element [1][0]: " + str(matrix[1][0])
+
+# List equality
+print "8. List equality:"
+list_a = [1, 2, 3]
+list_b = [1, 2, 3]
+list_c = [1, 2, 4]
+print "list_a == list_b: " + str(list_a == list_b)
+print "list_a == list_c: " + str(list_a == list_c)
+
+# Type conversions with lists
+print "9. Type conversions:"
+test_list = [1, 2, 3]
+print "str(list): " + str(test_list)
+print "int(list): " + str(int(test_list))  # Returns length
+print "bool(empty): " + str(bool(empty_list))
+print "bool(non-empty): " + str(bool(test_list))
+
+print "=== List Demo Complete ==="
+
+
+# ============================================================================
+# stage6_list_interactive.mpy - Interactive List Builder
+# ============================================================================
+
+# Commented out for file execution, but great for interactive demo:
+# print "=== Interactive List Builder ==="
+# user_list = []
+# 
+# while (true) {
+#     item = input("Enter an item (or 'quit' to finish): ")
+#     if (item == "quit") {
+#         break  # This would need break/continue implementation
+#     } else {
+#         append(user_list, item)
+#         print "Current list: " + str(user_list)
+#         print "List length: " + str(len(user_list))
+#     }
+# }
+# 
+# print "Final list: " + str(user_list)
+# 
+# # Let user remove items
+# while (len(user_list) > 0) {
+#     index_str = input("Enter index to remove (or 'done'): ")
+#     if (index_str == "done") {
+#         break
+#     } else {
+#         index = int(index_str)
+#         if (index >= 0 and index < len(user_list)) {
+#             removed = remove(user_list, index)
+#             print "Removed: " + removed
+#             print "Updated list: " + str(user_list)
+#         } else {
+#             print "Invalid index!"
+#         }
+#     }
+# }
+
+
+# ============================================================================
+# stage6_algorithm_demo.mpy - Algorithm Demo with Lists
+# ============================================================================
+
+print "=== Algorithm Demo with Lists ==="
+
+# Bubble sort implementation
+print "1. Bubble Sort Demo:"
+unsorted = [64, 34, 25, 12, 22, 11, 90]
+print "Original: " + str(unsorted)
+
+# Create a copy for sorting
+sorted_list = [] + unsorted  # List concatenation to copy
+
+n = len(sorted_list)
+i = 0
+while (i < n - 1) {
+    j = 0
+    while (j < n - i - 1) {
+        if (sorted_list[j] > sorted_list[j + 1]) {
+            # Swap elements
+            temp = sorted_list[j]
+            sorted_list[j] = sorted_list[j + 1]
+            sorted_list[j + 1] = temp
+        }
+        j = j + 1
+    }
+    i = i + 1
+}
+
+print "Sorted: " + str(sorted_list)
+
+# Find maximum element
+print "2. Finding Maximum:"
+numbers = [3, 7, 2, 9, 1, 5]
+print "Numbers: " + str(numbers)
+
+max_val = numbers[0]
+i = 1
+while (i < len(numbers)) {
+    if (numbers[i] > max_val) {
+        max_val = numbers[i]
+    }
+    i = i + 1
+}
+print "Maximum: " + str(max_val)
+
+# List reversal
+print "3. List Reversal:"
+original = [1, 2, 3, 4, 5]
+print "Original: " + str(original)
+
+reversed_list = []
+i = len(original) - 1
+while (i >= 0) {
+    append(reversed_list, original[i])
+    i = i - 1
+}
+print "Reversed: " + str(reversed_list)
+
+# Count occurrences
+print "4. Count Occurrences:"
+items = ["apple", "banana", "apple", "cherry", "apple"]
+target = "apple"
+print "Items: " + str(items)
+print "Counting: " + target
+
+count = 0
+i = 0
+while (i < len(items)) {
+    if (items[i] == target) {
+        count = count + 1
+    }
+    i = i + 1
+}
+print "Occurrences: " + str(count)
+
+print "=== Algorithm Demo Complete ==="
+
+
+# ============================================================================
+# stage6_comprehensive_test.mpy - Comprehensive List Feature Test
+# ============================================================================
+
+print "=== Comprehensive List Feature Test ==="
+
+# Test all required features from assignment
+print "Testing back-insertion (append):"
+test_list = [1, 2]
+append(test_list, 3)
+append(test_list, 4)
+print "After appends: " + str(test_list)
+
+print "Testing random access (indexing):"
+print "Element 0: " + str(test_list[0])
+print "Element 2: " + str(test_list[2])
+print "Last element: " + str(test_list[len(test_list) - 1])
+
+print "Testing random removal:"
+removed_elem = remove(test_list, 1)
+print "Removed element at index 1: " + str(removed_elem)
+print "List after removal: " + str(test_list)
+
+print "Testing number-based indices:"
+indices_test = ["zero", "one", "two", "three"]
+print "Using index 0: " + indices_test[0]
+print "Using index 2: " + indices_test[2]
+
+# Test edge cases
+print "Testing edge cases:"
+
+# Empty list operations
+empty = []
+print "Empty list length: " + str(len(empty))
+append(empty, "first")
+print "After append to empty: " + str(empty)
+
+# Negative indexing (Python-style)
+test_neg = [10, 20, 30]
+print "List: " + str(test_neg)
+print "Last element (index -1): " + str(test_neg[-1])
+print "Second last (index -2): " + str(test_neg[-2])
+
+# Mixed type lists
+mixed = [1, "hello", true, 3.14, [1, 2]]
+print "Mixed type list: " + str(mixed)
+print "String element: " + mixed[1]
+print "Boolean element: " + str(mixed[2])
+print "Nested list element: " + str(mixed[4])
+
+# List operations with variables
+print "Testing with variables:"
+size = len(mixed)
+index = 1
+value = "world"
+mixed[index] = value
+print "After assignment mixed[" + str(index) + "] = " + value + ": " + str(mixed)
+
+# Type conversion integration
+print "Testing type conversions:"
+numbers_list = [1, 2, 3]
+print "Original: " + str(numbers_list)
+print "As string: " + str(numbers_list)
+print "Length as int: " + str(int(numbers_list))
+print "Truthiness: " + str(bool(numbers_list))
+print "Empty list truthiness: " + str(bool([]))
+
+print "=== All List Features Tested Successfully ==="

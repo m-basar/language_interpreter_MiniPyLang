@@ -1,0 +1,100 @@
+# example2.minipy - Variables and Control Flow
+# Demonstrates Stage 4-5 features: variables, assignments, and control structures
+
+print "=== MiniPyLang Example 2: Variables and Control Flow ==="
+
+# Variable assignments and usage
+print "Variable Operations:"
+x = 10
+y = 20
+sum = x + y
+print "x = " + str(x)
+print "y = " + str(y) 
+print "sum = " + str(sum)
+
+# Variable reassignment
+counter = 0
+print "Initial counter: " + str(counter)
+counter = counter + 1
+print "After increment: " + str(counter)
+
+# Type conversions
+print "Type Conversions:"
+numStr = "42"
+num = int(numStr)
+print "String '42' as integer: " + str(num)
+
+floatVal = 3.14159
+print "Float as string: " + str(floatVal)
+print "Float as integer: " + str(int(floatVal))
+
+boolVal = true
+print "Boolean as string: " + str(boolVal)
+print "Boolean as integer: " + str(int(boolVal))
+
+# Conditional statements
+print "Conditional Logic:"
+age = 25
+if (age >= 18) {
+    print "You are an adult"
+} else {
+    print "You are a minor"
+}
+
+# Nested conditionals
+score = 85
+if (score >= 90) {
+    print "Grade: A"
+} else {
+    if (score >= 80) {
+        print "Grade: B"
+    } else {
+        if (score >= 70) {
+            print "Grade: C"
+        } else {
+            print "Grade: F"
+        }
+    }
+}
+
+# While loops
+print "While Loop Example:"
+i = 1
+while (i <= 5) {
+    print "Count: " + str(i)
+    i = i + 1
+}
+
+# Countdown example
+print "Countdown:"
+countdown = 5
+while (countdown > 0) {
+    print str(countdown) + "..."
+    countdown = countdown - 1
+}
+print "Blast off!"
+
+# Accumulation pattern
+print "Sum of 1 to 10:"
+n = 1
+total = 0
+while (n <= 10) {
+    total = total + n
+    n = n + 1
+}
+print "Total: " + str(total)
+
+# Boolean conditions in loops
+print "Boolean Flag Pattern:"
+keepGoing = true
+attempts = 0
+while (keepGoing) {
+    attempts = attempts + 1
+    print "Attempt: " + str(attempts)
+    if (attempts >= 3) {
+        keepGoing = false
+    }
+}
+print "Finished after " + str(attempts) + " attempts"
+
+print "=== End of Example 2 ==="

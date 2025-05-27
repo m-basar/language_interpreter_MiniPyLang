@@ -1,10 +1,13 @@
 """
-lexer.py - Enhanced Stage 6 lexical analyser with list support
+lexer.py - Enhanced Stage 6 lexical analyser with list and dictionary support
 
-Handles tokenisation of Stage 6 list constructs:
+Handles tokenisation of Stage 6 list and dictionary constructs:
 - Square brackets [ ] for list literals and indexing
-- Commas , for list element separation
+- Curly braces { } for dictionary literals and code blocks
+- Colon : for dictionary key-value pairs
+- Commas , for list element and dictionary pair separation
 - Built-in list functions: append, remove, len
+- Built-in dictionary functions: keys, values, has_key, del_key
 """
 
 from tokens import Token
@@ -26,9 +29,9 @@ class LexerError(Exception):
 
 class Lexer:
     """
-    Enhanced lexer for Stage 6 MiniPyLang with list support.
+    Enhanced lexer for Stage 6 MiniPyLang with list and dictionary support.
     
-    Converts source code text into tokens including list constructs.
+    Converts source code text into tokens including list and dictionary constructs.
     """
     
     def __init__(self, text):
@@ -192,7 +195,7 @@ class Lexer:
             if self.current_char.isalpha() or self.current_char == '_':
                 identifier = self.read_identifier()
                 
-                # Enhanced keyword map with control flow and list functions
+                # Enhanced keyword map with control flow, list functions, and dictionary functions
                 keyword_map = {
                     # Existing keywords
                     'true': (Token.TRUE, True),
@@ -217,10 +220,16 @@ class Lexer:
                     # Input function
                     'input': (Token.INPUT_FUNC, 'input'),
                     
-                    # NEW: List built-in functions
+                    # List built-in functions
                     'append': (Token.APPEND_FUNC, 'append'),
                     'remove': (Token.REMOVE_FUNC, 'remove'),
-                    'len': (Token.LEN_FUNC, 'len')
+                    'len': (Token.LEN_FUNC, 'len'),
+                    
+                    # NEW: Dictionary built-in functions
+                    'keys': (Token.KEYS_FUNC, 'keys'),
+                    'values': (Token.VALUES_FUNC, 'values'),
+                    'has_key': (Token.HAS_KEY_FUNC, 'has_key'),
+                    'del_key': (Token.DEL_KEY_FUNC, 'del_key')
                 }
                 
                 identifier_lower = identifier.lower()
@@ -277,10 +286,10 @@ class Lexer:
                 ')': Token.RPAREN,
                 '{': Token.LBRACE,
                 '}': Token.RBRACE,
-                # NEW: Square brackets and comma for lists
                 '[': Token.LBRACKET,
                 ']': Token.RBRACKET,
-                ',': Token.COMMA
+                ',': Token.COMMA,
+                ':': Token.COLON  # NEW: Colon for dictionary key-value pairs
             }
             
             if self.current_char in single_char_tokens:

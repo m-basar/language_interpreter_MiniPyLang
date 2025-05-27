@@ -1,0 +1,47 @@
+# simple_list_interactive.minipy - Simple Interactive List Example
+# Demonstrates user input with list operations
+
+print "=== Simple To-Do List ==="
+
+# Create empty list
+todoList = []
+
+print "Enter 3 tasks for your to-do list:"
+
+# Add 3 items using back-insertion
+i = 1
+while (i <= 3) {
+    task = input("Enter task " + str(i) + ": ")
+    append(todoList, task)  # Back-insertion
+    i = i + 1
+}
+
+# Show the list using random access
+print "Your to-do list:"
+i = 0
+while (i < len(todoList)) {
+    print str(i + 1) + ". " + todoList[i]  # Random access
+    i = i + 1
+}
+
+# Let user remove one task
+print "Which task did you complete?"
+taskNum = input("Enter task number (1-3): ")
+position = int(taskNum) - 1
+
+if (position >= 0 and position < len(todoList)) {
+    completed = remove(todoList, position)  # Random removal
+    print "Great! You completed: " + completed
+    
+    print "Remaining tasks:"
+    i = 0
+    while (i < len(todoList)) {
+        print str(i + 1) + ". " + todoList[i]  # Random access
+        i = i + 1
+    }
+} else {
+    print "Invalid task number!"
+}
+
+print "Tasks remaining: " + str(len(todoList))
+print "=== End ==="

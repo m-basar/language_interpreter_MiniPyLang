@@ -1,0 +1,112 @@
+# example3.minipy - String Operations and Functions  
+# Demonstrates advanced string handling and built-in functions
+
+print "=== MiniPyLang Example 3: String Operations ==="
+
+# Basic string operations
+firstName = "Alice"
+lastName = "Johnson"
+fullName = firstName + " " + lastName
+print "Full name: " + fullName
+
+# String building and manipulation
+greeting = "Hello"
+punctuation = "!"
+message = greeting + ", " + fullName + punctuation
+print message
+
+# String comparisons
+print "String Comparisons:"
+str1 = "apple"
+str2 = "banana"
+str3 = "apple"
+
+print str1 + " == " + str2 + ": " + str(str1 == str2)
+print str1 + " == " + str3 + ": " + str(str1 == str3)
+print str1 + " != " + str2 + ": " + str(str1 != str2)
+
+# Working with numbers and strings
+print "Number-String Conversions:"
+userAge = 25
+ageMessage = "I am " + str(userAge) + " years old"
+print ageMessage
+
+temperature = 23.5
+tempMessage = "Temperature: " + str(temperature) + "°C"
+print tempMessage
+
+# Boolean to string conversion
+isWeekend = false
+statusMessage = "Weekend: " + str(isWeekend)
+print statusMessage
+
+# String length demonstration using conversion
+text = "Hello World"
+print "Text: '" + text + "'"
+# Note: We don't have a direct string length function,
+# but we can demonstrate string properties
+
+# Empty string handling
+emptyStr = ""
+print "Empty string length as boolean: " + str(bool(emptyStr))
+nonEmptyStr = "content"
+print "Non-empty string length as boolean: " + str(bool(nonEmptyStr))
+
+# String concatenation in loops
+print "Building strings in loops:"
+result = ""
+i = 1
+while (i <= 5) {
+    result = result + str(i)
+    if (i < 5) {
+        result = result + ", "
+    }
+    i = i + 1
+}
+print "Numbers: " + result
+
+# Conditional string building
+print "Conditional String Building:"
+weather = "sunny"
+activity = ""
+if (weather == "sunny") {
+    activity = "go to the beach"
+} else {
+    if (weather == "rainy") {
+        activity = "stay inside and read"
+    } else {
+        activity = "check the weather again"
+    }
+}
+recommendation = "Since it's " + weather + ", let's " + activity
+print recommendation
+
+# String patterns and repetition
+print "String Patterns:"
+separator = "-"
+border = ""
+count = 0
+while (count < 20) {
+    border = border + separator
+    count = count + 1
+}
+print border
+print "  MiniPyLang String Demo"
+print border
+
+# Working with mixed data types
+print "Mixed Data Processing:"
+productName = "Laptop"
+price = 999.99
+inStock = true
+availability = ""
+if (inStock) {
+    availability = "Available"
+} else {
+    availability = "Out of Stock"
+}
+
+productInfo = productName + " - £" + str(price) + " (" + availability + ")"
+print productInfo
+
+print "=== End of Example 3 ==="

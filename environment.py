@@ -1,5 +1,5 @@
 """
-environment.py - Complete Stage 5 variable storage system
+environment.py - Complete Stage 6 variable storage system
 
 Provides variable storage and management for MiniPyLang:
 - Variable definition and lookup

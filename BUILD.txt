@@ -1,0 +1,73 @@
+BUILD.txt - MiniPyLang Build Instructions
+===========================================
+
+SYSTEM REQUIREMENTS:
+- Python 3.7 or higher
+- No external dependencies required (uses only Python standard library)
+- Minimum 50MB free disk space
+- Command line terminal access
+
+BUILD PROCESS:
+1. Extract the ZIP archive to your desired directory
+2. No compilation step required - MiniPyLang is implemented in Python
+3. Ensure all Python files are in the same directory:
+   - main.py                    (Main programme entry point)
+   - tokens.py                  (Token definitions)
+   - lexer.py                   (Lexical analyser)
+   - parser.py                  (Syntax parser)
+   - ast_nodes.py               (Abstract syntax tree nodes)
+   - interpreter.py             (Programme interpreter)
+   - environment.py             (Variable environment)
+
+BUILD VERIFICATION:
+To verify the build is successful, run:
+   python main.py --help
+
+This should display the help information without errors.
+
+EXAMPLE FILE TESTING:
+Test with all provided example files:
+
+Basic Examples:
+   python main.py example1.minipy          (Arithmetic & expressions)
+   python main.py example2.minipy          (Variables & control flow)
+   python main.py example3.minipy          (String operations)
+   python main.py example4.minipy          (List operations)
+   python main.py example5.minipy          (Dictionary operations)
+
+
+Interactive Examples:
+   python main.py simple_list_interactive.minipy (Interactive to-do list)
+   python main.py simple_dict_interactive.minipy (Interactive phone book)
+
+Mode:
+   python main.py example1.minipy --tree   (Shows parse tree structure)
+
+Interactive Mode:
+   python main.py                          (Start interactive interpreter)
+
+EXPECTED OUTPUT:
+All example files should run without errors and produce meaningful output.
+Interactive examples will prompt for user input.
+The interactive mode should start with a welcome message and >>> prompt.
+
+TROUBLESHOOTING:
+- If "python" command not found, try "python3" or "py"
+- Ensure all .py and .minipy files have read permissions
+- Check Python version: python --version (must be 3.7+)
+- All files must be in the same directory for imports to work
+- python main.py
+- Ensure no personal firewall is blocking Python execution
+
+PLATFORM NOTES:
+- Windows: Use Command Prompt or PowerShell
+- macOS/Linux: Use Terminal
+- The language is platform-independent and should work identically across all systems
+
+SUCCESS CRITERIA:
+Build is successful if:
+1. Help command shows usage information
+2. Interactive mode starts and accepts simple expressions
+3. No Python import errors occur
+
+The language requires no external libraries and should run on any system with Python 3.7+.

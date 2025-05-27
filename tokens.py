@@ -1,16 +1,19 @@
 """
-tokens.py - Enhanced Stage 6 token system with List support
+tokens.py - Enhanced Stage 6 token system with List and Dictionary support
 
-Adds list data structure tokens to Stage 5:
+Adds list and dictionary data structure tokens to Stage 5:
 - Square brackets [ ] for list literals and indexing
+- Curly braces { } for dictionary literals (reused from control flow)
+- Colon : for dictionary key-value pairs
 - Built-in list functions: append, remove, len
+- Built-in dictionary functions: keys, values, has_key, del_key
 """
 
 class Token:
     """
-    Enhanced token class supporting list data structures.
+    Enhanced token class supporting list and dictionary data structures.
     
-    Stage 6 adds list functionality with proper collection support.
+    Stage 6 adds list and dictionary functionality with proper collection support.
     """
     
     # Data type tokens
@@ -42,10 +45,10 @@ class Token:
     # Grouping
     LPAREN = 'LPAREN'          # (
     RPAREN = 'RPAREN'          # )
-    LBRACE = 'LBRACE'          # {
-    RBRACE = 'RBRACE'          # }
-    LBRACKET = 'LBRACKET'      # [ - NEW for lists
-    RBRACKET = 'RBRACKET'      # ] - NEW for lists
+    LBRACE = 'LBRACE'          # { - Used for both control flow and dictionaries
+    RBRACE = 'RBRACE'          # } - Used for both control flow and dictionaries
+    LBRACKET = 'LBRACKET'      # [ - For lists and indexing
+    RBRACKET = 'RBRACKET'      # ] - For lists and indexing
     
     # Variables and statements
     IDENTIFIER = 'IDENTIFIER'   # Variable names
@@ -61,7 +64,8 @@ class Token:
     # Programme structure
     NEWLINE = 'NEWLINE'        # Line endings
     EOF = 'EOF'                # End of file
-    COMMA = 'COMMA'            # , - NEW for list elements
+    COMMA = 'COMMA'            # , - For list elements and dictionary pairs
+    COLON = 'COLON'            # : - NEW for dictionary key-value pairs
     
     # Type conversion functions
     STR_FUNC = 'STR_FUNC'      # str() function
@@ -72,10 +76,16 @@ class Token:
     # Input function
     INPUT_FUNC = 'INPUT_FUNC'  # input() function
     
-    # NEW: List built-in functions
+    # List built-in functions
     APPEND_FUNC = 'APPEND_FUNC'  # append() function
     REMOVE_FUNC = 'REMOVE_FUNC'  # remove() function
     LEN_FUNC = 'LEN_FUNC'        # len() function
+    
+    # NEW: Dictionary built-in functions
+    KEYS_FUNC = 'KEYS_FUNC'      # keys() function
+    VALUES_FUNC = 'VALUES_FUNC'  # values() function
+    HAS_KEY_FUNC = 'HAS_KEY_FUNC'  # has_key() function
+    DEL_KEY_FUNC = 'DEL_KEY_FUNC'  # del_key() function
     
     def __init__(self, type, value):
         self.type = type

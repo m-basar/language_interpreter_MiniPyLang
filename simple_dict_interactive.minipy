@@ -1,0 +1,61 @@
+# simple_dict_interactive.minipy - Simple Interactive Dictionary Example
+# Demonstrates user input with dictionary operations
+
+print "=== Simple Phone Book ==="
+
+# Create empty dictionary
+phoneBook = {}
+
+print "Let's add 2 contacts to your phone book:"
+
+# Add 2 contacts using assigning
+i = 1
+while (i <= 2) {
+    name = input("Enter name " + str(i) + ": ")
+    phone = input("Enter phone number for " + name + ": ")
+    phoneBook[name] = phone  # Assigning
+    print "Added " + name + " to your phone book"
+    i = i + 1
+}
+
+# Show all contacts using keys() and values()
+print "Your phone book:"
+allNames = keys(phoneBook)
+i = 0
+while (i < len(allNames)) {
+    name = allNames[i]
+    phone = phoneBook[name]  # Access by key
+    print name + ": " + phone
+    i = i + 1
+}
+
+# Let user search for a contact
+searchName = input("Who do you want to call? Enter name: ")
+
+# Query if contact exists
+if (has_key(phoneBook, searchName)) {  # Querying
+    phone = phoneBook[searchName]
+    print "Calling " + searchName + " at " + phone + "..."
+} else {
+    print searchName + " not found in your phone book"
+    
+    # Ask if they want to add it
+    newPhone = input("Enter phone number to add " + searchName + ": ")
+    phoneBook[searchName] = newPhone  # Assigning new contact
+    print "Added " + searchName + " to your phone book!"
+}
+
+# Show final phone book
+print "Final phone book has " + str(len(phoneBook)) + " contacts"
+
+# Remove one contact
+removeName = input("Enter name to remove: ")
+if (has_key(phoneBook, removeName)) {  # Querying
+    removedPhone = del_key(phoneBook, removeName)  # Removing
+    print "Removed " + removeName + " (" + removedPhone + ")"
+} else {
+    print removeName + " not found"
+}
+
+print "Phone book now has " + str(len(phoneBook)) + " contacts"
+print "=== End ==="
