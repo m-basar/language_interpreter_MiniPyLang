@@ -27,7 +27,7 @@ class Environment:
     """
     
     def __init__(self):
-        """Initialize empty environment"""
+        """Initialise empty environment"""
         self._variables = {}
         
         # Optional: tracking for debugging and analysis
