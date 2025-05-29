@@ -121,7 +121,7 @@ The interpreter provides detailed error messages including:
 - Division by zero protection
 - Invalid operation errors
 
-EDUCATIONAL FEATURES:
+Extra FEATURES:
 Use 'tree on' in interactive mode to see:
 - How expressions are tokenised
 - Abstract syntax tree structure
@@ -129,3 +129,5 @@ Use 'tree on' in interactive mode to see:
 - Internal language processing
 
 This helps understand how programming languages work internally.
+
+https://github.com/m-basar/language_interpreter_MiniPyLang.git

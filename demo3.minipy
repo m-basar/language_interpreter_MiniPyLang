@@ -1,0 +1,16 @@
+"hello" + " " + "world"
+"foo" + "bar" == "foobar"
+"10 corgis" != "10" + "corgis"
+"hello world"
+"test" == "test"
+"abc" != "xyz"
+"line1\nline2"
+"tab\there"
+"quote: \"hello\""
+1 + "test"
+"5" == 5
+true == "true"
+""
+"" + "hello"
+"" == ""
+("hello" + " ") + ("world" + "!")

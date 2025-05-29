@@ -1,0 +1,17 @@
+is_running = true
+shopping_list = ""
+count = 0
+while (is_running == true and count < 3) {
+    item = input("add an item to the shopping list: ")
+    if (item == "") {
+        is_running = false
+    } else {
+        if (shopping_list == "") {
+            shopping_list = item
+        } else {
+            shopping_list = shopping_list + ", " + item
+        }
+        count = count + 1
+    }
+}
+print shopping_list

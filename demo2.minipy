@@ -1,0 +1,12 @@
+true == false
+true != false
+(5 < 10)
+!(5 - 4 > 3 * 2 == !false)
+true and true
+false and true
+(0 < 1) or false
+false or false
+5 > 3
+10 <= 10
+(true and false) or (5 == 5)
+5 < 10 and 3 > 1

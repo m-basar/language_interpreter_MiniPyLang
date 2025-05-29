@@ -1,0 +1,51 @@
+# Basic Variable Operations:
+
+quickMaths = 10
+quickMaths = quickMaths + 2
+print quickMaths
+
+# Float Operations:
+
+floatTest = 1.0
+floatTest = floatTest + 5
+print floatTest
+
+# String Concatenation with Type Conversion:
+
+stringCatTest = "10 corgis"
+stringCatTest = stringCatTest + 5 + " more corgis"
+print stringCatTest
+
+# Error Case:
+
+errorTest = 5
+errorTest = errorTest + "insert string here"
+print errorTest
+
+Strategic Extra Tests:
+
+# Extra : Variable Deletion
+
+temp = "delete me"
+print temp
+del temp
+print temp
+
+#Extra : Variable Reuse
+
+counter = 0
+counter = counter + 1
+counter = counter * 2
+print counter
+
+# Extra : Multiple Variables
+
+a = 5
+b = 10
+c = a + b
+print c
+
+# Extra : Mixed Type Error Handling
+
+value = 10
+value = value * "hello"
